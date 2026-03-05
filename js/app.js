@@ -19,6 +19,11 @@ function loadDemoData() {
     { id: 'demo-d3', domain_name: 'saga-kanko.jp', client_id: 'demo-c3', renewal_month: 6, billing_month: 5, registrar: 'さくらインターネット', memo: '' },
     { id: 'demo-d4', domain_name: 'tanaka-recruit.com', client_id: 'demo-c1', renewal_month: 9, billing_month: 8, registrar: 'お名前.com', memo: '採用サイト用' },
   ];
+  _cache.hostings = [
+    { id: 'demo-h1', service_name: '田中商事 VPS', client_id: 'demo-c1', plan: 'スタンダード', registrar: 'さくらインターネット', renewal_month: new Date().getMonth() + 1, billing_month: new Date().getMonth() + 1, monthly_fee: 2200, annual_fee: 0, memo: '' },
+    { id: 'demo-h2', service_name: '山田フーズ 共有サーバー', client_id: 'demo-c2', plan: 'ビジネス', registrar: 'エックスサーバー', renewal_month: (new Date().getMonth() + 2) > 12 ? 1 : new Date().getMonth() + 2, billing_month: (new Date().getMonth() + 2) > 12 ? 1 : new Date().getMonth() + 2, monthly_fee: 1320, annual_fee: 0, memo: '' },
+    { id: 'demo-h3', service_name: '佐賀観光 クラウド', client_id: 'demo-c3', plan: 'エコノミー', registrar: 'ロリポップ', renewal_month: 5, billing_month: 4, monthly_fee: 0, annual_fee: 14800, memo: '年払い' },
+  ];
 }
 
 /* ============================================================
@@ -84,7 +89,7 @@ function hideLoading() {
 }
 
 async function refreshData() {
-  await Promise.all([dbFetchProjects(), dbFetchClients(), dbFetchDomains()]);
+  await Promise.all([dbFetchProjects(), dbFetchClients(), dbFetchDomains(), dbFetchHostings()]);
   renderTable();
   updateKPI();
   updateOrderBadge();
@@ -96,19 +101,22 @@ async function refreshData() {
 
 /* ── VIEW ── */
 function showView(view) {
-  ['ledger','orders','invoice','clients','domains','company'].forEach(v => {
+  ['ledger','orders','invoice','clients','domains','hostings','monthly','dashboard','company'].forEach(v => {
     const el = document.getElementById('view-'+v);
     if (el) el.style.display = v === view ? '' : 'none';
   });
   document.querySelectorAll('.nav-item[data-view]').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
   });
-  const titles = { ledger:'案件台帳', orders:'受注管理', invoice:'見積・請求書', clients:'取引先', domains:'ドメイン管理', company:'自社情報設定' };
+  const titles = { ledger:'案件台帳', orders:'受注管理', invoice:'見積・請求書', clients:'取引先', domains:'ドメイン管理', hostings:'ホスティング管理', monthly:'月次請求リスト', dashboard:'売上ダッシュボード', company:'自社情報設定' };
   document.getElementById('pageTitle').textContent = titles[view] || '';
   document.getElementById('newProjectBtn').style.display = view === 'ledger' ? '' : 'none';
   if (view === 'orders') renderOrdersTable();
   if (view === 'company') applyConfigToForm();
   if (view === 'domains') renderDomains();
+  if (view === 'hostings') renderHostings();
+  if (view === 'monthly') renderMonthly();
+  if (view === 'dashboard') renderDashboard();
 }
 
 /* ── KPI ── */
@@ -782,4 +790,312 @@ async function deleteDomain() {
   } catch(e) {
     toast('削除エラー: ' + e.message, '❌', 'error');
   }
+}
+
+/* ============================================================
+   HOSTING MANAGEMENT
+   ============================================================ */
+let _editingHostingId = null;
+
+function renderHostings() {
+  const search = (document.getElementById('hostingSearch')?.value || '').toLowerCase();
+  const monthFilter = document.getElementById('hostingMonthFilter')?.value;
+  const tbody = document.getElementById('hostingTableBody');
+  if (!tbody) return;
+
+  let hostings = _cache.hostings || [];
+  if (search) hostings = hostings.filter(h => {
+    const cn = getClientById(h.client_id)?.name || '';
+    return h.service_name.toLowerCase().includes(search) || cn.toLowerCase().includes(search);
+  });
+  if (monthFilter) hostings = hostings.filter(h => String(h.renewal_month) === monthFilter);
+
+  const now = new Date();
+  const thisMonth = now.getMonth() + 1;
+  const nextMonth = thisMonth === 12 ? 1 : thisMonth + 1;
+  const alertItems = (_cache.hostings || []).filter(h => h.renewal_month === thisMonth || h.renewal_month === nextMonth);
+  const alertEl = document.getElementById('hostingAlert');
+  if (alertEl) {
+    if (alertItems.length > 0) {
+      alertEl.innerHTML = `⚠️ 更新が近いサービス: ${alertItems.map(h => `<strong>${h.service_name}</strong>（${h.renewal_month}月）`).join('、')}`;
+      alertEl.style.display = '';
+    } else { alertEl.style.display = 'none'; }
+  }
+
+  if (hostings.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:32px">ホスティングが登録されていません</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = hostings.map(h => {
+    const client = getClientById(h.client_id);
+    const isUrgent = h.renewal_month === thisMonth;
+    const isSoon   = h.renewal_month === nextMonth;
+    const badge = isUrgent ? '<span style="background:#ff5252;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">今月</span>'
+      : isSoon ? '<span style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">来月</span>' : '';
+    return `<tr onclick="openHostingModal('${h.id}')" style="cursor:pointer">
+      <td><strong>${h.service_name}</strong>${badge}</td>
+      <td>${client?.name || '<span style="color:var(--muted)">未設定</span>'}</td>
+      <td>${h.plan || '<span style="color:var(--muted)">-</span>'}</td>
+      <td>${h.registrar || '<span style="color:var(--muted)">-</span>'}</td>
+      <td style="text-align:center">${h.renewal_month ? h.renewal_month+'月' : '-'}</td>
+      <td style="text-align:center">${h.billing_month ? h.billing_month+'月' : '-'}</td>
+      <td style="text-align:right">${h.monthly_fee ? '¥'+h.monthly_fee.toLocaleString() : '-'}</td>
+      <td style="text-align:right">${h.annual_fee ? '¥'+h.annual_fee.toLocaleString() : '-'}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openHostingModal('${h.id}')">編集</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function openHostingModal(id) {
+  _editingHostingId = id || null;
+  const h = id ? (_cache.hostings || []).find(x => x.id === id) : null;
+  document.getElementById('hostingModalTitle').textContent = h ? 'ホスティング編集' : 'ホスティング追加';
+  document.getElementById('deleteHostingBtn').style.display = h ? '' : 'none';
+  const sel = document.getElementById('ht-client');
+  sel.innerHTML = '<option value="">（未設定）</option>' +
+    (_cache.clients || []).map(c => `<option value="${c.id}" ${h?.client_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('');
+  document.getElementById('ht-name').value      = h?.service_name   || '';
+  document.getElementById('ht-plan').value      = h?.plan           || '';
+  document.getElementById('ht-registrar').value = h?.registrar      || '';
+  document.getElementById('ht-renewal').value   = h?.renewal_month  || '';
+  document.getElementById('ht-billing').value   = h?.billing_month  || '';
+  document.getElementById('ht-monthly').value   = h?.monthly_fee    || '';
+  document.getElementById('ht-annual').value    = h?.annual_fee     || '';
+  document.getElementById('ht-memo').value      = h?.memo           || '';
+  openModal('hostingModal');
+}
+
+async function saveHosting() {
+  const name = document.getElementById('ht-name').value.trim();
+  if (!name) { toast('サービス名を入力してください', '⚠️'); return; }
+  const data = {
+    service_name:  name,
+    client_id:     document.getElementById('ht-client').value || null,
+    plan:          document.getElementById('ht-plan').value.trim() || null,
+    registrar:     document.getElementById('ht-registrar').value.trim() || null,
+    renewal_month: Number(document.getElementById('ht-renewal').value) || null,
+    billing_month: Number(document.getElementById('ht-billing').value) || null,
+    monthly_fee:   Number(document.getElementById('ht-monthly').value) || 0,
+    annual_fee:    Number(document.getElementById('ht-annual').value) || 0,
+    memo:          document.getElementById('ht-memo').value.trim() || null,
+  };
+  if (_editingHostingId) data.id = _editingHostingId;
+  try {
+    const saved = await dbSaveHosting(data);
+    if (!_cache.hostings) _cache.hostings = [];
+    if (_editingHostingId) {
+      const idx = _cache.hostings.findIndex(h => h.id === _editingHostingId);
+      if (idx >= 0) _cache.hostings[idx] = { ..._cache.hostings[idx], ...saved };
+    } else { _cache.hostings.unshift(saved); }
+    closeModal('hostingModal');
+    renderHostings();
+    toast(_editingHostingId ? 'ホスティングを更新しました' : 'ホスティングを追加しました', '✅', 'success');
+  } catch(e) { toast('保存エラー: ' + e.message, '❌', 'error'); }
+}
+
+async function deleteHosting() {
+  if (!_editingHostingId) return;
+  const h = (_cache.hostings || []).find(x => x.id === _editingHostingId);
+  if (!confirm(`「${h?.service_name}」を削除しますか？`)) return;
+  try {
+    await dbDeleteHosting(_editingHostingId);
+    _cache.hostings = (_cache.hostings || []).filter(h => h.id !== _editingHostingId);
+    closeModal('hostingModal');
+    renderHostings();
+    toast('削除しました', '🗑');
+  } catch(e) { toast('削除エラー: ' + e.message, '❌', 'error'); }
+}
+
+/* ============================================================
+   MONTHLY BILLING LIST
+   ============================================================ */
+function renderMonthly() {
+  const sel = document.getElementById('monthlyMonthSel');
+  if (!sel) return;
+
+  // セレクト初期化
+  if (sel.options.length === 0) {
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - 3 + i, 1);
+      const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const label = `${d.getFullYear()}年${d.getMonth()+1}月`;
+      const opt = new Option(label, val);
+      if (i === 3) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+
+  const [year, month] = sel.value.split('-').map(Number);
+
+  // ドメイン（請求月が一致）
+  const domains = (_cache.domains || []).filter(d => d.billing_month === month);
+  const domainBody = document.getElementById('monthlyDomainBody');
+  if (domainBody) {
+    domainBody.innerHTML = domains.length === 0
+      ? `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px">該当なし</td></tr>`
+      : domains.map(d => {
+          const cn = getClientById(d.client_id)?.name || '-';
+          return `<tr><td>${d.domain_name}</td><td>${cn}</td><td>${d.registrar||'-'}</td>
+            <td style="text-align:center">${d.renewal_month ? d.renewal_month+'月' : '-'}</td>
+            <td style="text-align:center">${d.billing_month}月</td>
+            <td style="color:var(--muted);font-size:12px">${d.memo||''}</td></tr>`;
+        }).join('');
+  }
+
+  // ホスティング（請求月が一致）
+  const hostings = (_cache.hostings || []).filter(h => h.billing_month === month);
+  const hostingBody = document.getElementById('monthlyHostingBody');
+  let hostingTotal = 0;
+  if (hostingBody) {
+    hostingBody.innerHTML = hostings.length === 0
+      ? `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">該当なし</td></tr>`
+      : hostings.map(h => {
+          const cn = getClientById(h.client_id)?.name || '-';
+          const fee = h.annual_fee || h.monthly_fee || 0;
+          hostingTotal += fee;
+          return `<tr><td>${h.service_name}</td><td>${cn}</td><td>${h.plan||'-'}</td>
+            <td style="text-align:center">${h.renewal_month ? h.renewal_month+'月' : '-'}</td>
+            <td style="text-align:center">${h.billing_month}月</td>
+            <td style="text-align:right">${h.monthly_fee ? '¥'+h.monthly_fee.toLocaleString() : '-'}</td>
+            <td style="text-align:right">${h.annual_fee ? '¥'+h.annual_fee.toLocaleString() : '-'}</td></tr>`;
+        }).join('');
+  }
+
+  // KPI
+  const kpiEl = document.getElementById('monthlyKPI');
+  if (kpiEl) {
+    kpiEl.innerHTML = `
+      <div style="background:var(--surface);border-radius:10px;padding:16px">
+        <div style="font-size:12px;color:var(--muted)">ドメイン請求件数</div>
+        <div style="font-size:28px;font-weight:700;color:var(--text);margin-top:4px">${domains.length}<span style="font-size:14px;font-weight:400"> 件</span></div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:16px">
+        <div style="font-size:12px;color:var(--muted)">ホスティング請求件数</div>
+        <div style="font-size:28px;font-weight:700;color:var(--text);margin-top:4px">${hostings.length}<span style="font-size:14px;font-weight:400"> 件</span></div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:16px">
+        <div style="font-size:12px;color:var(--muted)">ホスティング請求合計</div>
+        <div style="font-size:28px;font-weight:700;color:var(--accent-green);margin-top:4px">¥${hostingTotal.toLocaleString()}</div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:16px">
+        <div style="font-size:12px;color:var(--muted)">合計件数</div>
+        <div style="font-size:28px;font-weight:700;color:var(--text);margin-top:4px">${domains.length + hostings.length}<span style="font-size:14px;font-weight:400"> 件</span></div>
+      </div>`;
+  }
+
+  const totalEl = document.getElementById('monthlyTotal');
+  if (totalEl) totalEl.textContent = `合計 ${domains.length + hostings.length} 件`;
+}
+
+/* ============================================================
+   SALES DASHBOARD
+   ============================================================ */
+let _charts = {};
+
+function renderDashboard() {
+  const projects = _cache.projects || [];
+
+  // KPI
+  const totalSales = projects.reduce((s, p) => s + calcTotal(p.lines), 0);
+  const ordered    = projects.filter(p => ['ordered','wip','delivered','invoiced','paid'].includes(p.status)).length;
+  const paid       = projects.filter(p => p.status === 'paid').length;
+  const avgSales   = projects.length ? Math.round(totalSales / projects.length) : 0;
+
+  const kpiEl = document.getElementById('dashKPI');
+  if (kpiEl) {
+    kpiEl.innerHTML = `
+      <div style="background:var(--surface);border-radius:10px;padding:16px;border-top:3px solid var(--accent)">
+        <div style="font-size:12px;color:var(--muted)">総売上（税抜）</div>
+        <div style="font-size:24px;font-weight:700;color:var(--accent);margin-top:4px">¥${totalSales.toLocaleString()}</div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:16px;border-top:3px solid #4caf50">
+        <div style="font-size:12px;color:var(--muted)">受注件数</div>
+        <div style="font-size:24px;font-weight:700;color:#4caf50;margin-top:4px">${ordered} 件</div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:16px;border-top:3px solid #2196f3">
+        <div style="font-size:12px;color:var(--muted)">入金済件数</div>
+        <div style="font-size:24px;font-weight:700;color:#2196f3;margin-top:4px">${paid} 件</div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:16px;border-top:3px solid #ff9800">
+        <div style="font-size:12px;color:var(--muted)">案件平均単価</div>
+        <div style="font-size:24px;font-weight:700;color:#ff9800;margin-top:4px">¥${avgSales.toLocaleString()}</div>
+      </div>`;
+  }
+
+  // 月別売上グラフ（過去12ヶ月）
+  const now = new Date();
+  const months = Array.from({length: 12}, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
+    return { label: `${d.getMonth()+1}月`, year: d.getFullYear(), month: d.getMonth()+1, total: 0 };
+  });
+  projects.forEach(p => {
+    if (!p.orderDate) return;
+    const d = new Date(p.orderDate);
+    const m = months.find(x => x.year === d.getFullYear() && x.month === d.getMonth()+1);
+    if (m) m.total += calcTotal(p.lines);
+  });
+
+  destroyChart('salesChart');
+  const salesCtx = document.getElementById('salesChart');
+  if (salesCtx) {
+    _charts.salesChart = new Chart(salesCtx, {
+      type: 'bar',
+      data: {
+        labels: months.map(m => m.label),
+        datasets: [{ label: '売上（税抜）', data: months.map(m => m.total),
+          backgroundColor: 'rgba(229,82,43,0.7)', borderColor: '#e5522b', borderWidth: 1, borderRadius: 4 }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } },
+        scales: { y: { ticks: { callback: v => '¥'+v.toLocaleString() } } } }
+    });
+  }
+
+  // ステータス別件数
+  const statusLabels = { ordered:'受注', wip:'作業中', delivered:'納品済', invoiced:'請求済', paid:'入金済' };
+  const statusCounts = Object.keys(statusLabels).map(k => projects.filter(p => p.status === k).length);
+  destroyChart('statusChart');
+  const statusCtx = document.getElementById('statusChart');
+  if (statusCtx) {
+    _charts.statusChart = new Chart(statusCtx, {
+      type: 'doughnut',
+      data: {
+        labels: Object.values(statusLabels),
+        datasets: [{ data: statusCounts,
+          backgroundColor: ['#e5522b','#ff9800','#2196f3','#9c27b0','#4caf50'] }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'right' } } }
+    });
+  }
+
+  // 取引先別売上TOP10
+  const clientSales = {};
+  projects.forEach(p => {
+    const cn = getClientById(p.clientId || p.client_id)?.name || p._client?.name || '不明';
+    clientSales[cn] = (clientSales[cn] || 0) + calcTotal(p.lines);
+  });
+  const top10 = Object.entries(clientSales).sort((a,b) => b[1]-a[1]).slice(0,10);
+  destroyChart('clientChart');
+  const clientCtx = document.getElementById('clientChart');
+  if (clientCtx) {
+    _charts.clientChart = new Chart(clientCtx, {
+      type: 'bar',
+      data: {
+        labels: top10.map(x => x[0]),
+        datasets: [{ label: '売上', data: top10.map(x => x[1]),
+          backgroundColor: 'rgba(33,150,243,0.7)', borderColor: '#2196f3', borderWidth: 1, borderRadius: 4 }]
+      },
+      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } },
+        scales: { x: { ticks: { callback: v => '¥'+v.toLocaleString() } } } }
+    });
+  }
+}
+
+function destroyChart(id) {
+  if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
+}
+
+function calcTotal(lines) {
+  if (!lines || !Array.isArray(lines)) return 0;
+  return lines.reduce((s, l) => s + (Number(l.price || l.unitPrice || 0) * Number(l.qty || l.quantity || 1)), 0);
 }

@@ -52,6 +52,7 @@ let _cache = {
   projects: [],
   clients: [],
   domains: [],
+  hostings: [],
   lastFetch: null,
 };
 
@@ -443,4 +444,53 @@ async function dbDeleteDomain(id) {
     toast('削除エラー: ' + e.message, '❌', 'error');
     throw e;
   }
+}
+
+/* ── HOSTINGS ── */
+async function dbFetchHostings() {
+  if (!isDbReady()) return _cache.hostings || [];
+  try {
+    const { data, error } = await _supabase.from('hostings').select('*').order('service_name');
+    if (error) throw error;
+    _cache.hostings = data || [];
+    return _cache.hostings;
+  } catch(e) {
+    console.error('ホスティング取得エラー:', e);
+    return _cache.hostings || [];
+  }
+}
+
+async function dbSaveHosting(data) {
+  if (!isDbReady()) {
+    if (!_cache.hostings) _cache.hostings = [];
+    if (data.id) {
+      const idx = _cache.hostings.findIndex(h => h.id === data.id);
+      if (idx >= 0) _cache.hostings[idx] = data;
+    } else { _cache.hostings.push({ ...data, id: 'local-' + Date.now() }); }
+    return data;
+  }
+  try {
+    if (data.id && !data.id.startsWith('local-')) {
+      const { id, created_at, ...upd } = data;
+      upd.updated_at = new Date().toISOString();
+      const { data: d, error } = await _supabase.from('hostings').update(upd).eq('id', id).select().single();
+      if (error) throw error;
+      return d;
+    } else {
+      const { id, created_at, ...ins } = data;
+      const { data: d, error } = await _supabase.from('hostings').insert(ins).select().single();
+      if (error) throw error;
+      return d;
+    }
+  } catch(e) { console.error('ホスティング保存エラー:', e); throw e; }
+}
+
+async function dbDeleteHosting(id) {
+  if (!isDbReady()) { _cache.hostings = (_cache.hostings||[]).filter(h => h.id !== id); return true; }
+  try {
+    const { error } = await _supabase.from('hostings').delete().eq('id', id);
+    if (error) throw error;
+    _cache.hostings = (_cache.hostings||[]).filter(h => h.id !== id);
+    return true;
+  } catch(e) { console.error('ホスティング削除エラー:', e); throw e; }
 }

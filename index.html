@@ -48,6 +48,16 @@
       <div class="nav-item" data-view="domains" onclick="showView('domains')">
         <span class="nav-icon">🌐</span> ドメイン管理
       </div>
+      <div class="nav-item" data-view="hostings" onclick="showView('hostings')">
+        <span class="nav-icon">🖥️</span> ホスティング
+      </div>
+      <div class="nav-section">レポート</div>
+      <div class="nav-item" data-view="monthly" onclick="showView('monthly')">
+        <span class="nav-icon">📅</span> 月次請求リスト
+      </div>
+      <div class="nav-item" data-view="dashboard" onclick="showView('dashboard')">
+        <span class="nav-icon">📊</span> 売上ダッシュボード
+      </div>
       <div class="nav-item" data-view="company" onclick="showView('company')">
         <span class="nav-icon">⚙️</span> 自社情報
       </div>
@@ -264,6 +274,86 @@
         </div>
       </div>
 
+      <!-- HOSTINGS VIEW -->
+      <div id="view-hostings" style="display:none">
+        <div class="toolbar">
+          <div class="search-box"><span>🔍</span>
+            <input type="text" id="hostingSearch" placeholder="サービス名・顧客名で検索..." oninput="renderHostings()">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="hostingMonthFilter" class="form-control" style="width:140px" onchange="renderHostings()">
+              <option value="">更新月：すべて</option>
+              <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+              <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+              <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+              <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+            </select>
+            <button class="btn btn-primary" onclick="openHostingModal()">＋ サービス追加</button>
+          </div>
+        </div>
+        <div id="hostingAlert" style="display:none;margin-bottom:12px;padding:10px 16px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;font-size:13px;color:#795548"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>サービス名</th>
+                <th>顧客名</th>
+                <th>プラン</th>
+                <th>会社</th>
+                <th style="text-align:center">更新月</th>
+                <th style="text-align:center">請求月</th>
+                <th style="text-align:right">月額</th>
+                <th style="text-align:right">年額</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="hostingTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- MONTHLY VIEW -->
+      <div id="view-monthly" style="display:none">
+        <div class="toolbar">
+          <select id="monthlyMonthSel" class="form-control" style="width:120px" onchange="renderMonthly()"></select>
+          <span style="color:var(--muted);font-size:13px" id="monthlyTotal"></span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px" id="monthlyKPI"></div>
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text)">🌐 ドメイン更新・請求</h3>
+        <div class="table-wrap" style="margin-bottom:24px">
+          <table>
+            <thead><tr><th>ドメイン名</th><th>顧客名</th><th>レジストラ</th><th style="text-align:center">更新月</th><th style="text-align:center">請求月</th><th>メモ</th></tr></thead>
+            <tbody id="monthlyDomainBody"></tbody>
+          </table>
+        </div>
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text)">🖥️ ホスティング更新・請求</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>サービス名</th><th>顧客名</th><th>プラン</th><th style="text-align:center">更新月</th><th style="text-align:center">請求月</th><th style="text-align:right">月額</th><th style="text-align:right">年額</th></tr></thead>
+            <tbody id="monthlyHostingBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DASHBOARD VIEW -->
+      <div id="view-dashboard" style="display:none">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px" id="dashKPI"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div style="background:var(--surface);border-radius:12px;padding:20px">
+            <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:16px">月別売上（税抜）</div>
+            <canvas id="salesChart" height="220"></canvas>
+          </div>
+          <div style="background:var(--surface);border-radius:12px;padding:20px">
+            <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:16px">ステータス別件数</div>
+            <canvas id="statusChart" height="220"></canvas>
+          </div>
+        </div>
+        <div style="background:var(--surface);border-radius:12px;padding:20px;margin-top:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:16px">取引先別売上TOP10</div>
+          <canvas id="clientChart" height="120"></canvas>
+        </div>
+      </div>
+
       <!-- COMPANY VIEW -->
       <div id="view-company" style="display:none">
         <div style="max-width:640px">
@@ -469,8 +559,75 @@
   </div>
 </div>
 
+  <!-- HOSTING MODAL -->
+  <div class="overlay" id="hostingModal" onclick="if(event.target===this)closeModal('hostingModal')">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <div class="modal-title" id="hostingModalTitle">ホスティング追加</div>
+        <button class="modal-close" onclick="closeModal('hostingModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group form-full">
+            <label class="form-label">サービス名 <span style="color:var(--accent2)">*</span></label>
+            <input class="form-control" id="ht-name" placeholder="例：さくらVPS・エックスサーバー">
+          </div>
+          <div class="form-group form-full">
+            <label class="form-label">顧客名</label>
+            <select class="form-control" id="ht-client"></select>
+          </div>
+          <div class="form-group form-full">
+            <label class="form-label">プラン</label>
+            <input class="form-control" id="ht-plan" placeholder="スタンダードプラン など">
+          </div>
+          <div class="form-group form-full">
+            <label class="form-label">会社（レジストラ）</label>
+            <input class="form-control" id="ht-registrar" placeholder="さくらインターネット・エックスサーバー など">
+          </div>
+          <div class="form-group">
+            <label class="form-label">更新月</label>
+            <select class="form-control" id="ht-renewal">
+              <option value="">未設定</option>
+              <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+              <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+              <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+              <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">請求月</label>
+            <select class="form-control" id="ht-billing">
+              <option value="">未設定</option>
+              <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+              <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+              <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+              <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">月額（税抜）</label>
+            <input class="form-control" id="ht-monthly" type="number" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">年額（税抜）</label>
+            <input class="form-control" id="ht-annual" type="number" placeholder="0">
+          </div>
+          <div class="form-group form-full">
+            <label class="form-label">メモ</label>
+            <textarea class="form-control" id="ht-memo" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="deleteHostingBtn" onclick="deleteHosting()" style="margin-right:auto;color:var(--accent);border-color:var(--accent);display:none">🗑 削除</button>
+        <button class="btn btn-outline" onclick="closeModal('hostingModal')">キャンセル</button>
+        <button class="btn btn-primary" onclick="saveHosting()">保存する</button>
+      </div>
+    </div>
+  </div>
+
   <!-- DOMAIN MODAL -->
-  <div class="modal-overlay" id="domainModal" onclick="if(event.target===this)closeModal('domainModal')">
+  <div class="overlay" id="domainModal" onclick="if(event.target===this)closeModal('domainModal')">
     <div class="modal" style="max-width:500px">
       <div class="modal-header">
         <div class="modal-title" id="domainModalTitle">ドメイン追加</div>
@@ -527,7 +684,8 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- Supabase CDN -->
-<script src="js/_env.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="js/_env.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
