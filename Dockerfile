@@ -19,9 +19,20 @@ RUN printf '%s\n' \
   '    Require all granted' \
   '</Directory>' >> /etc/apache2/apache2.conf
 
+# Node.jsをインストール（entrypoint.sh内でbuild.js実行用）
+RUN apt-get update && apt-get install -y nodejs npm && apt-get clean
+
 # ファイル配置
 COPY . /var/www/html
+
+# entrypoint.shに実行権限
+RUN chmod +x /var/www/html/entrypoint.sh
 
 # パーミッション
 RUN chown -R www-data:www-data /var/www/html \
  && chmod -R 755 /var/www/html
+
+WORKDIR /var/www/html
+
+# 起動時にentrypoint.shを実行（環境変数→_env.js生成→Apache起動）
+CMD ["/var/www/html/entrypoint.sh"]
