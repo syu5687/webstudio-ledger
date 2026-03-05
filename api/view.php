@@ -114,7 +114,7 @@ if ($isEst && !in_array($p['status'] ?? '', ['ordered','wip','delivered','invoic
     </div>';
 }
 
-$pdfBtn = !$isEst ? '<button onclick="window.print()" style="display:inline-block;background:#1565c0;color:#fff;padding:10px 24px;border-radius:6px;font-size:14px;font-weight:600;border:none;cursor:pointer;margin-top:8px">📥 PDFダウンロード（印刷）</button>' : '';
+$pdfBtn = '<button onclick="window.print()" style="display:inline-block;background:#1565c0;color:#fff;padding:10px 24px;border-radius:6px;font-size:14px;font-weight:600;border:none;cursor:pointer">📥 PDFダウンロード</button>';
 ?>
 <!DOCTYPE html>
 <html lang="ja">
@@ -180,7 +180,10 @@ $pdfBtn = !$isEst ? '<button onclick="window.print()" style="display:inline-bloc
   </div>
 
   <?= $orderBtn ?>
-  <div class="no-print" style="text-align:center;margin-top:24px"><?= $pdfBtn ?></div>
+  <div class="no-print" style="margin-top:32px;padding:20px;border-top:2px solid #e8e4de;text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+    <?= $pdfBtn ?>
+    <button onclick="window.close()" style="background:#e8e4de;color:#444;padding:10px 24px;border-radius:6px;font-size:14px;font-weight:600;border:none;cursor:pointer">✕ 閉じる</button>
+  </div>
 </div>
 </body>
 </html>

@@ -69,197 +69,93 @@ async function sendEmail({ to, cc, subject, html, text }) {
 /**
  * 見積書メール本文を生成
  */
-function buildEstimateEmailHtml(project, client, company, orderUrl) {
+function buildEstimateEmailHtml(project, client, company, viewUrl) {
   const co = company;
   const sub = calcSubtotal(project.lines);
   const tax = Math.round(sub * (Number(co.taxRate) || 10) / 100);
   const grand = sub + tax;
+  const url = viewUrl || '';
 
-  const lineRows = (project.lines || []).map(l => {
-    const total = (Number(l.qty) || 0) * (Number(l.price) || 0);
-    return `
-      <tr>
-        <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px">${l.name}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px;text-align:center">${l.qty}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px;text-align:right;font-family:monospace">¥${Number(l.price).toLocaleString()}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px;text-align:right;font-family:monospace">¥${total.toLocaleString()}</td>
-      </tr>`;
-  }).join('');
-
-  const orderSection = orderUrl ? `
-    <div style="margin-top:32px;padding:24px;background:#f0faf4;border:2px solid #2e8b57;border-radius:8px;text-align:center">
-      <p style="margin:0 0 6px;font-size:14px;color:#2e6b47;font-weight:600">上記の内容でご発注いただける場合</p>
-      <p style="margin:0 0 16px;font-size:13px;color:#5a8a6a">下記のボタンをクリックしてください。担当者に自動で通知されます。</p>
-      <a href="${orderUrl}" style="display:inline-block;background:#2e8b57;color:#fff;text-decoration:none;padding:14px 40px;font-size:15px;font-weight:700;border-radius:6px;letter-spacing:0.03em">
-        ✅ この見積内容で受注する
-      </a>
-      <p style="margin:12px 0 0;font-size:11px;color:#8aaa95">※ボタンを押すと担当者へ受注通知が送信されます</p>
-    </div>` : '';
-
-  return `<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f3ee;font-family:'Helvetica Neue',Arial,'Hiragino Sans',sans-serif">
-  <div style="max-width:680px;margin:32px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
-    
-    <!-- ヘッダー -->
-    <div style="background:#0f0f14;padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <div style="font-size:11px;color:#d4451a;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;font-family:monospace">Web Studio</div>
-        <div style="font-size:16px;font-weight:700;color:#fff">${co.name || 'Web Studio'}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:22px;font-weight:900;color:#d4451a;letter-spacing:0.06em">見積書</div>
-        <div style="font-size:12px;color:#666;font-family:monospace">No. ${project.estNo || '—'}</div>
-      </div>
-    </div>
-
-    <div style="padding:32px">
-      <!-- 宛先 -->
-      <div style="margin-bottom:24px">
-        <div style="font-size:10px;color:#8a8680;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">送付先</div>
-        <div style="font-size:18px;font-weight:700">${client.name || ''} 御中</div>
-        ${client.contact ? `<div style="font-size:13px;color:#8a8680;margin-top:2px">${client.contact} 様</div>` : ''}
-      </div>
-
-      <!-- 件名 -->
-      <div style="margin-bottom:24px;padding:14px 18px;background:#f5f3ee;border-radius:4px;border-left:4px solid #0f0f14">
-        <div style="font-size:11px;color:#8a8680;margin-bottom:4px">件名</div>
-        <div style="font-size:15px;font-weight:600">${project.name}</div>
-      </div>
-
-      <!-- 明細表 -->
-      <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
-        <thead>
-          <tr style="background:#0f0f14">
-            <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:#fff;letter-spacing:0.05em">品目</th>
-            <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:600;color:#fff;width:60px">数量</th>
-            <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:600;color:#fff;width:120px">単価</th>
-            <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:600;color:#fff;width:120px">金額</th>
-          </tr>
-        </thead>
-        <tbody>${lineRows}</tbody>
-      </table>
-
-      <!-- 合計 -->
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;border-top:2px solid #0f0f14;padding-top:12px">
-        <div style="display:flex;gap:20px;font-size:13px">
-          <span style="color:#8a8680;min-width:90px;text-align:right">小計</span>
-          <span style="font-family:monospace;min-width:110px;text-align:right">¥${sub.toLocaleString()}</span>
-        </div>
-        <div style="display:flex;gap:20px;font-size:13px">
-          <span style="color:#8a8680;min-width:90px;text-align:right">消費税（${co.taxRate || 10}%）</span>
-          <span style="font-family:monospace;min-width:110px;text-align:right">¥${tax.toLocaleString()}</span>
-        </div>
-        <div style="display:flex;gap:20px;font-size:17px;font-weight:700;border-top:1px solid #d8d4cc;padding-top:8px;margin-top:4px">
-          <span style="min-width:90px;text-align:right">合計</span>
-          <span style="font-family:monospace;min-width:110px;text-align:right">¥${grand.toLocaleString()}</span>
-        </div>
-      </div>
-
-      <!-- 受注ボタン -->
-      ${orderSection}
-    </div>
-
-    <!-- フッター -->
-    <div style="background:#f5f3ee;padding:20px 32px;border-top:1px solid #d8d4cc;font-size:12px;color:#8a8680;line-height:1.8">
-      <div style="font-weight:600;color:#0f0f14;margin-bottom:6px">${co.name || ''}</div>
-      <div>〒${co.zip || ''} ${co.addr || ''}</div>
-      <div>TEL: ${co.tel || ''} ／ ${co.email || ''}</div>
-      ${co.bank ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #d8d4cc">振込先：${co.bank} ${co.account || ''} （${co.holder || ''}）</div>` : ''}
-    </div>
-  </div>
-</body>
-</html>`;
+  return '<!DOCTYPE html>' +
+    '<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="margin:0;padding:0;background:#f5f3ee;font-family:Helvetica Neue,Arial,Hiragino Sans,sans-serif">' +
+    '<div style="max-width:600px;margin:32px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">' +
+    '<div style="background:#0f0f14;padding:24px 32px">' +
+    '<div style="font-size:11px;color:#d4451a;letter-spacing:0.15em;margin-bottom:4px">WEB STUDIO</div>' +
+    '<div style="font-size:15px;font-weight:700;color:#fff">' + (co.name || '') + '</div>' +
+    '</div>' +
+    '<div style="padding:32px">' +
+    '<p style="margin:0 0 8px;font-size:15px;font-weight:700">' + (client.name || '') + ' 御中</p>' +
+    (client.contact ? '<p style="margin:0 0 20px;font-size:13px;color:#666">' + client.contact + ' 様</p>' : '<p style="margin:0 0 20px"></p>') +
+    '<p style="margin:0 0 20px;font-size:14px;line-height:1.8">いつもお世話になっております。<br>' + (co.name || '') + 'でございます。<br><br>' +
+    'このたびは、<strong>' + project.name + '</strong> のご依頼をいただき、誠にありがとうございます。<br>' +
+    '下記のとおり見積書をお送りいたします。ご確認のほど、よろしくお願いいたします。</p>' +
+    '<div style="background:#f5f3ee;border-radius:6px;padding:20px 24px;margin-bottom:24px">' +
+    '<div style="font-size:12px;color:#8a8680;margin-bottom:8px">■ 見積内容</div>' +
+    '<div style="font-size:14px;margin-bottom:4px">案件名：<strong>' + project.name + '</strong></div>' +
+    '<div style="font-size:20px;font-weight:700;margin-top:8px">お見積金額：¥' + grand.toLocaleString() + '<span style="font-size:12px;font-weight:400;color:#666">（税込）</span></div>' +
+    '</div>' +
+    (url ? (
+      '<div style="background:#fff8e1;border:1px solid #f0c040;border-radius:6px;padding:20px 24px;margin-bottom:24px;text-align:center">' +
+      '<div style="font-size:13px;color:#666;margin-bottom:12px">見積書の詳細はこちらからご確認いただけます</div>' +
+      '<a href="' + url + '" style="display:inline-block;background:#0f0f14;color:#fff;text-decoration:none;padding:12px 32px;font-size:14px;font-weight:700;border-radius:6px;margin-bottom:12px">📄 見積書を確認する</a>' +
+      '<div style="font-size:12px;color:#888;word-break:break-all;margin-top:8px">' + url + '</div>' +
+      '<div style="margin-top:16px;padding-top:16px;border-top:1px solid #f0c040">' +
+      '<div style="font-size:13px;color:#666;margin-bottom:10px">上記内容でご発注いただける場合は、見積書ページの受注ボタンをご利用ください</div>' +
+      '<a href="' + url + '" style="display:inline-block;background:#2e8b57;color:#fff;text-decoration:none;padding:10px 28px;font-size:14px;font-weight:700;border-radius:6px">✅ 見積書を確認して受注する</a>' +
+      '</div></div>'
+    ) : '') +
+    '<p style="font-size:13px;line-height:1.8;color:#444">ご不明な点がございましたら、お気軽にご連絡ください。<br>今後ともよろしくお願いいたします。</p>' +
+    '</div>' +
+    '<div style="background:#f5f3ee;padding:20px 32px;border-top:1px solid #d8d4cc;font-size:12px;color:#8a8680;line-height:1.8">' +
+    '<div style="font-weight:600;color:#0f0f14;margin-bottom:4px">' + (co.name || '') + '</div>' +
+    '<div>TEL: ' + (co.tel || '') + ' / ' + (co.email || '') + '</div>' +
+    (co.bank ? '<div style="margin-top:6px">振込先：' + co.bank + ' ' + (co.account || '') + '（' + (co.holder || '') + '）</div>' : '') +
+    '</div></div></body></html>';
 }
 
-/**
- * 請求書メールHTML生成
- */
-function buildInvoiceEmailHtml(project, client, company) {
+function buildInvoiceEmailHtml(project, client, company, viewUrl) {
   const co = company;
   const sub = calcSubtotal(project.lines);
-  const taxRate = Number(co.taxRate) || 10;
-  const tax = Math.round(sub * taxRate / 100);
+  const tax = Math.round(sub * (Number(co.taxRate) || 10) / 100);
   const grand = sub + tax;
-  const today = new Date();
-  const dueDate = new Date(today.getTime() + (Number(co.dueDays) || 30) * 86400000);
-  const fmtD = (d) => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  const url = viewUrl || '';
 
-  const lineRows = (project.lines || []).map(l => {
-    const total = (Number(l.qty) || 0) * (Number(l.price) || 0);
-    return `<tr>
-      <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px">${l.name}</td>
-      <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px;text-align:center">${l.qty}</td>
-      <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px;text-align:right;font-family:monospace">¥${Number(l.price).toLocaleString()}</td>
-      <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px;text-align:right;font-family:monospace">¥${total.toLocaleString()}</td>
-    </tr>`;
-  }).join('');
-
-  return `<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f5f3ee;font-family:'Helvetica Neue',Arial,'Hiragino Sans',sans-serif">
-  <div style="max-width:680px;margin:32px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
-    <div style="background:#0f0f14;padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <div style="font-size:11px;color:#d4451a;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;font-family:monospace">Web Studio</div>
-        <div style="font-size:16px;font-weight:700;color:#fff">${co.name || ''}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:22px;font-weight:900;color:#d4451a;letter-spacing:0.06em">請求書</div>
-        <div style="font-size:12px;color:#666;font-family:monospace">No. ${project.invNo || '—'}</div>
-        <div style="font-size:11px;color:#666;margin-top:4px">発行日：${fmtD(today)}</div>
-        <div style="font-size:11px;color:#666">支払期限：${fmtD(dueDate)}</div>
-      </div>
-    </div>
-    <div style="padding:32px">
-      <div style="margin-bottom:24px">
-        <div style="font-size:10px;color:#8a8680;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">請求先</div>
-        <div style="font-size:18px;font-weight:700">${client.name || ''} 御中</div>
-        ${client.contact ? `<div style="font-size:13px;color:#8a8680;margin-top:2px">${client.contact} 様</div>` : ''}
-      </div>
-      <div style="margin-bottom:24px;padding:14px 18px;background:#f5f3ee;border-radius:4px;border-left:4px solid #0f0f14">
-        <div style="font-size:11px;color:#8a8680;margin-bottom:4px">件名</div>
-        <div style="font-size:15px;font-weight:600">${project.name}</div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
-        <thead>
-          <tr style="background:#0f0f14">
-            <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:#fff">品目</th>
-            <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:600;color:#fff;width:60px">数量</th>
-            <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:600;color:#fff;width:120px">単価</th>
-            <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:600;color:#fff;width:120px">金額</th>
-          </tr>
-        </thead>
-        <tbody>${lineRows}</tbody>
-      </table>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;border-top:2px solid #0f0f14;padding-top:12px">
-        <div style="display:flex;gap:20px;font-size:13px"><span style="color:#8a8680;min-width:100px;text-align:right">小計</span><span style="font-family:monospace;min-width:110px;text-align:right">¥${sub.toLocaleString()}</span></div>
-        <div style="display:flex;gap:20px;font-size:13px"><span style="color:#8a8680;min-width:100px;text-align:right">消費税（${taxRate}%）</span><span style="font-family:monospace;min-width:110px;text-align:right">¥${tax.toLocaleString()}</span></div>
-        <div style="display:flex;gap:20px;font-size:17px;font-weight:700;border-top:1px solid #d8d4cc;padding-top:8px;margin-top:4px">
-          <span style="min-width:100px;text-align:right">合計</span>
-          <span style="font-family:monospace;min-width:110px;text-align:right">¥${grand.toLocaleString()}</span>
-        </div>
-      </div>
-      <div style="margin-top:24px;padding-top:16px;border-top:1px solid #d8d4cc;font-size:12px;color:#8a8680;line-height:1.8">
-        <div style="font-weight:600;color:#0f0f14;margin-bottom:4px">お振込先</div>
-        <div>${co.bank || ''}</div>
-        <div>${co.account || ''}</div>
-        <div>口座名義：${co.holder || ''}</div>
-      </div>
-    </div>
-    <div style="background:#f5f3ee;padding:20px 32px;border-top:1px solid #d8d4cc;font-size:12px;color:#8a8680;line-height:1.8">
-      <div style="font-weight:600;color:#0f0f14;margin-bottom:4px">${co.name || ''}</div>
-      <div>〒${co.zip || ''} ${co.addr || ''}</div>
-      <div>TEL: ${co.tel || ''} ／ ${co.email || ''}</div>
-    </div>
-  </div>
-</body>
-</html>`;
+  return '<!DOCTYPE html>' +
+    '<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="margin:0;padding:0;background:#f5f3ee;font-family:Helvetica Neue,Arial,Hiragino Sans,sans-serif">' +
+    '<div style="max-width:600px;margin:32px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">' +
+    '<div style="background:#0f0f14;padding:24px 32px">' +
+    '<div style="font-size:11px;color:#d4451a;letter-spacing:0.15em;margin-bottom:4px">WEB STUDIO</div>' +
+    '<div style="font-size:15px;font-weight:700;color:#fff">' + (co.name || '') + '</div>' +
+    '</div>' +
+    '<div style="padding:32px">' +
+    '<p style="margin:0 0 8px;font-size:15px;font-weight:700">' + (client.name || '') + ' 御中</p>' +
+    (client.contact ? '<p style="margin:0 0 20px;font-size:13px;color:#666">' + client.contact + ' 様</p>' : '<p style="margin:0 0 20px"></p>') +
+    '<p style="margin:0 0 20px;font-size:14px;line-height:1.8">いつもお世話になっております。<br>' + (co.name || '') + 'でございます。<br><br>' +
+    'このたびは、<strong>' + project.name + '</strong> のご依頼をいただき、誠にありがとうございます。<br>' +
+    '下記のとおり請求書をお送りいたします。ご確認のほど、よろしくお願いいたします。</p>' +
+    '<div style="background:#f5f3ee;border-radius:6px;padding:20px 24px;margin-bottom:24px">' +
+    '<div style="font-size:12px;color:#8a8680;margin-bottom:8px">■ 請求内容</div>' +
+    '<div style="font-size:14px;margin-bottom:4px">案件名：<strong>' + project.name + '</strong></div>' +
+    '<div style="font-size:20px;font-weight:700;margin-top:8px">ご請求金額：¥' + grand.toLocaleString() + '<span style="font-size:12px;font-weight:400;color:#666">（税込）</span></div>' +
+    '</div>' +
+    (url ? (
+      '<div style="background:#e8f4fd;border:1px solid #90caf9;border-radius:6px;padding:20px 24px;margin-bottom:24px;text-align:center">' +
+      '<div style="font-size:13px;color:#666;margin-bottom:12px">請求書の詳細確認・PDFダウンロードはこちら</div>' +
+      '<a href="' + url + '" style="display:inline-block;background:#1565c0;color:#fff;text-decoration:none;padding:12px 32px;font-size:14px;font-weight:700;border-radius:6px;margin-bottom:8px">📄 請求書を確認・ダウンロード</a>' +
+      '<div style="font-size:12px;color:#888;word-break:break-all;margin-top:8px">' + url + '</div>' +
+      '</div>'
+    ) : '') +
+    '<p style="font-size:13px;line-height:1.8;color:#444">お振込の際は下記口座をご利用ください。<br>ご不明な点がございましたら、お気軽にご連絡ください。</p>' +
+    (co.bank ? '<div style="background:#f5f3ee;border-radius:4px;padding:12px 16px;font-size:13px;margin-bottom:16px">振込先：' + co.bank + ' ' + (co.account || '') + '（' + (co.holder || '') + '）</div>' : '') +
+    '</div>' +
+    '<div style="background:#f5f3ee;padding:20px 32px;border-top:1px solid #d8d4cc;font-size:12px;color:#8a8680;line-height:1.8">' +
+    '<div style="font-weight:600;color:#0f0f14;margin-bottom:4px">' + (co.name || '') + '</div>' +
+    '<div>TEL: ' + (co.tel || '') + ' / ' + (co.email || '') + '</div>' +
+    '</div></div></body></html>';
 }
 
-/* ── メール送付UI関数 ── */
 
 function sendByEmail() {
   const { project: p, type } = window._currentInvoiceData || {};
@@ -373,10 +269,13 @@ async function executeSendEmail() {
     return;
   }
 
+  // 閲覧URL（view.php）
+  const viewUrl2 = p?.id ? (window.location.origin + '/api/view.php?type=' + (isEstimate ? 'estimate' : 'invoice') + '&id=' + p.id) : '';
+
   if (isEstimate && p) {
-    html = buildEstimateEmailHtml(p, client, co, orderUrl);
+    html = buildEstimateEmailHtml(p, client, co, viewUrl2);
   } else if (p) {
-    html = buildInvoiceEmailHtml(p, client, co);
+    html = buildInvoiceEmailHtml(p, client, co, viewUrl2);
   } else {
     // プレーンテキストのHTMLラップ
     html = `<pre style="font-family:sans-serif;white-space:pre-wrap">${bodyText}</pre>`;
