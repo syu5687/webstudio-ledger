@@ -1240,7 +1240,7 @@ async function createBatchInvoice() {
 
     // 対象案件のステータスを「請求済」に更新
     for (const pid of checkedProjIds) {
-      await dbUpdateProject(pid, { status: 'invoiced' });
+      await dbUpdateProjectStatus(pid, 'invoiced');
       const idx = (_cache.projects||[]).findIndex(p => p.id === pid);
       if (idx >= 0) _cache.projects[idx].status = 'invoiced';
     }
