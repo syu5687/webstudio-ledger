@@ -1,0 +1,9 @@
+{
+  "name": "webstudio-ledger",
+  "version": "1.0.0",
+  "description": "Web制作 案件台帳管理システム",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "engines": { "node": ">=18" }
+}

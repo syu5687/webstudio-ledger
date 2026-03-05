@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>案件台帳 | Web制作管理システム</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ローディング画面 -->
+<div id="appLoading" style="position:fixed;inset:0;background:#0f0f14;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px">
+  <div style="font-family:'Space Mono',monospace;font-size:11px;color:#d4451a;letter-spacing:0.2em;text-transform:uppercase">Web Studio</div>
+  <div style="font-size:18px;font-weight:700;color:#fff">案件台帳 管理システム</div>
+  <div style="margin-top:8px;display:flex;gap:6px" id="loadingDots">
+    <span style="width:8px;height:8px;background:#d4451a;border-radius:50%;animation:dot 1.2s 0s infinite ease-in-out both"></span>
+    <span style="width:8px;height:8px;background:#d4451a;border-radius:50%;animation:dot 1.2s 0.2s infinite ease-in-out both"></span>
+    <span style="width:8px;height:8px;background:#d4451a;border-radius:50%;animation:dot 1.2s 0.4s infinite ease-in-out both"></span>
+  </div>
+  <div style="font-size:12px;color:#555;margin-top:4px" id="loadingMsg">接続中...</div>
+</div>
+<style>@keyframes dot{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}</style>
+
+<div class="shell" id="appShell" style="display:none">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">Web Studio</div>
+      <div class="logo-name">案件台帳<br>管理システム</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">メニュー</div>
+      <div class="nav-item active" data-view="ledger" onclick="showView('ledger')">
+        <span class="nav-icon">📋</span> 案件台帳
+      </div>
+      <div class="nav-item" data-view="orders" onclick="showView('orders')">
+        <span class="nav-icon">✅</span> 受注管理
+        <span class="nav-badge" id="orderBadge" style="display:none"></span>
+      </div>
+      <div class="nav-item" data-view="invoice" onclick="showView('invoice')">
+        <span class="nav-icon">🧾</span> 見積・請求書
+      </div>
+      <div class="nav-section">マスター</div>
+      <div class="nav-item" data-view="clients" onclick="showView('clients')">
+        <span class="nav-icon">🏢</span> 取引先
+      </div>
+      <div class="nav-item" data-view="domains" onclick="showView('domains')">
+        <span class="nav-icon">🌐</span> ドメイン管理
+      </div>
+      <div class="nav-item" data-view="company" onclick="showView('company')">
+        <span class="nav-icon">⚙️</span> 自社情報
+      </div>
+    </nav>
+    <div style="padding:16px 20px;border-top:1px solid #2a2a32;font-size:11px;color:#444">
+      <div id="dbStatus" style="display:flex;align-items:center;gap:6px">
+        <span style="width:6px;height:6px;border-radius:50%;background:#555;display:inline-block" id="dbDot"></span>
+        <span id="dbStatusText">未接続</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title" id="pageTitle">案件台帳</div>
+      <div class="topbar-right">
+        <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
+        <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- LEDGER VIEW -->
+      <div id="view-ledger">
+        <div class="kpi-row">
+          <div class="kpi-card" data-status="all" onclick="filterByStatus('all')">
+            <div class="kpi-label">全案件</div>
+            <div class="kpi-count" id="kpi-all">—</div>
+            <div class="kpi-amount" id="kpi-all-amt"></div>
+          </div>
+          <div class="kpi-card" data-status="ordered" onclick="filterByStatus('ordered')">
+            <div class="kpi-label">受注</div>
+            <div class="kpi-count" id="kpi-ordered">—</div>
+            <div class="kpi-amount" id="kpi-ordered-amt"></div>
+          </div>
+          <div class="kpi-card" data-status="wip" onclick="filterByStatus('wip')">
+            <div class="kpi-label">作業中</div>
+            <div class="kpi-count" id="kpi-wip">—</div>
+            <div class="kpi-amount" id="kpi-wip-amt"></div>
+          </div>
+          <div class="kpi-card" data-status="delivered" onclick="filterByStatus('delivered')">
+            <div class="kpi-label">納品済</div>
+            <div class="kpi-count" id="kpi-delivered">—</div>
+            <div class="kpi-amount" id="kpi-delivered-amt"></div>
+          </div>
+          <div class="kpi-card" data-status="invoiced" onclick="filterByStatus('invoiced')">
+            <div class="kpi-label">請求済</div>
+            <div class="kpi-count" id="kpi-invoiced">—</div>
+            <div class="kpi-amount" id="kpi-invoiced-amt"></div>
+          </div>
+        </div>
+        <div class="toolbar">
+          <div class="search-box">
+            <span>🔍</span>
+            <input type="text" id="searchInput" placeholder="案件名・取引先・コードで検索..." oninput="renderTable()">
+          </div>
+          <select class="filter-select" id="yearFilter" onchange="renderTable()">
+            <option value="">全年度</option>
+          </select>
+          <select class="filter-select" id="sortSelect" onchange="renderTable()">
+            <option value="date-desc">日付：新しい順</option>
+            <option value="date-asc">日付：古い順</option>
+            <option value="amount-desc">金額：高い順</option>
+            <option value="amount-asc">金額：低い順</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>案件コード</th>
+                <th>案件名 / 取引先</th>
+                <th>ステータス</th>
+                <th>受注日</th>
+                <th>納期</th>
+                <th style="text-align:right">金額（税抜）</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="projectTableBody"><tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">読み込み中...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ORDERS VIEW -->
+      <div id="view-orders" style="display:none">
+        <div id="orderNotifyBanner" style="display:none;margin-bottom:20px;background:linear-gradient(135deg,#1a6032,#2e8b57);color:#fff;border-radius:8px;padding:20px 24px;align-items:center;gap:16px">
+          <div style="font-size:32px">🎉</div>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:700;margin-bottom:4px" id="orderNotifyTitle">新しい受注が届きました！</div>
+            <div style="font-size:13px;opacity:0.85" id="orderNotifyDetail"></div>
+          </div>
+          <button onclick="document.getElementById('orderNotifyBanner').style.display='none'" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px">閉じる</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px 18px;border-top:3px solid var(--status-ordered)">
+            <div style="font-size:11px;color:var(--muted);font-weight:500;margin-bottom:8px">受注確定（未着手）</div>
+            <div style="font-family:'Space Mono',monospace;font-size:28px;font-weight:700" id="ord-count-ordered">—</div>
+            <div style="font-size:11px;color:var(--muted)" id="ord-amt-ordered"></div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px 18px;border-top:3px solid var(--status-wip)">
+            <div style="font-size:11px;color:var(--muted);font-weight:500;margin-bottom:8px">作業中</div>
+            <div style="font-family:'Space Mono',monospace;font-size:28px;font-weight:700" id="ord-count-wip">—</div>
+            <div style="font-size:11px;color:var(--muted)" id="ord-amt-wip"></div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px 18px;border-top:3px solid var(--ink)">
+            <div style="font-size:11px;color:var(--muted);font-weight:500;margin-bottom:8px">今月受注累計</div>
+            <div style="font-family:'Space Mono',monospace;font-size:28px;font-weight:700" id="ord-count-month">—</div>
+            <div style="font-size:11px;color:var(--muted)" id="ord-amt-month"></div>
+          </div>
+        </div>
+        <div class="toolbar">
+          <div class="search-box">
+            <span>🔍</span>
+            <input type="text" id="orderSearch" placeholder="案件名・取引先で検索..." oninput="renderOrdersTable()">
+          </div>
+          <select class="filter-select" id="orderStatusFilter" onchange="renderOrdersTable()">
+            <option value="">全ステータス</option>
+            <option value="ordered">受注</option>
+            <option value="wip">作業中</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>案件コード</th><th>案件名 / 取引先</th><th>ステータス</th>
+                <th>受注日時</th><th>受注経路</th>
+                <th style="text-align:right">金額（税抜）</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- INVOICE VIEW -->
+      <div id="view-invoice" style="display:none">
+        <div class="toolbar">
+          <div class="search-box">
+            <span>🔍</span>
+            <input type="text" id="invSearch" placeholder="見積書No・案件名で検索..." oninput="renderInvoiceList()">
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>見積書No / 請求書No</th><th>案件名 / 取引先</th>
+                <th>発行日</th><th style="text-align:right">金額（税込）</th>
+                <th>ステータス</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="invoiceListBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CLIENTS VIEW -->
+      <div id="view-clients" style="display:none">
+        <div class="toolbar">
+          <div class="search-box"><span>🔍</span>
+            <input type="text" id="clientSearch" placeholder="取引先名で検索..." oninput="renderClients()">
+          </div>
+          <button class="btn btn-primary" onclick="openClientModal()">＋ 取引先追加</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>取引先名</th><th>担当者</th><th>メール</th><th>電話</th><th>案件数</th><th></th></tr></thead>
+            <tbody id="clientTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DOMAINS VIEW -->
+      <div id="view-domains" style="display:none">
+        <div class="toolbar">
+          <div class="search-box"><span>🔍</span>
+            <input type="text" id="domainSearch" placeholder="ドメイン名・顧客名で検索..." oninput="renderDomains()">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="domainMonthFilter" class="form-control" style="width:140px" onchange="renderDomains()">
+              <option value="">更新月：すべて</option>
+              <option value="1">1月</option><option value="2">2月</option>
+              <option value="3">3月</option><option value="4">4月</option>
+              <option value="5">5月</option><option value="6">6月</option>
+              <option value="7">7月</option><option value="8">8月</option>
+              <option value="9">9月</option><option value="10">10月</option>
+              <option value="11">11月</option><option value="12">12月</option>
+            </select>
+            <button class="btn btn-primary" onclick="openDomainModal()">＋ ドメイン追加</button>
+          </div>
+        </div>
+
+        <!-- 更新月アラート -->
+        <div id="domainAlert" style="display:none;margin-bottom:12px;padding:10px 16px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;font-size:13px;color:#795548"></div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ドメイン名</th>
+                <th>顧客名</th>
+                <th>レジストラ</th>
+                <th style="text-align:center">更新月</th>
+                <th style="text-align:center">請求月</th>
+                <th>メモ</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="domainTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- COMPANY VIEW -->
+      <div id="view-company" style="display:none">
+        <div style="max-width:640px">
+          <h3 style="margin-bottom:20px;font-size:16px;font-weight:700">自社情報設定</h3>
+          <div class="section-card">
+            <div class="section-label">基本情報</div>
+            <div class="form-grid">
+              <div class="form-group form-full"><label class="form-label">会社名</label><input class="form-control" id="co-name"></div>
+              <div class="form-group"><label class="form-label">郵便番号</label><input class="form-control" id="co-zip"></div>
+              <div class="form-group"><label class="form-label">電話番号</label><input class="form-control" id="co-tel"></div>
+              <div class="form-group form-full"><label class="form-label">住所</label><input class="form-control" id="co-addr"></div>
+              <div class="form-group form-full"><label class="form-label">メールアドレス（送信元）</label><input class="form-control" id="co-email" type="email"></div>
+            </div>
+          </div>
+          <div class="section-card" style="margin-top:16px">
+            <div class="section-label">振込先情報</div>
+            <div class="form-grid">
+              <div class="form-group"><label class="form-label">銀行名・支店名</label><input class="form-control" id="co-bank"></div>
+              <div class="form-group"><label class="form-label">口座番号</label><input class="form-control" id="co-account"></div>
+              <div class="form-group form-full"><label class="form-label">口座名義</label><input class="form-control" id="co-holder"></div>
+            </div>
+          </div>
+          <div class="section-card" style="margin-top:16px">
+            <div class="section-label">請求設定</div>
+            <div class="form-grid">
+              <div class="form-group"><label class="form-label">消費税率（%）</label><input class="form-control" id="co-tax" type="number" value="10"></div>
+              <div class="form-group"><label class="form-label">支払期限（日数）</label><input class="form-control" id="co-due" type="number" value="30"></div>
+            </div>
+          </div>
+          <div class="section-card" style="margin-top:16px">
+            <div class="section-label">🔑 Supabase 接続設定</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Supabaseのプロジェクト設定 → API から取得できます</div>
+            <div class="form-grid">
+              <div class="form-group form-full"><label class="form-label">Supabase URL</label><input class="form-control" id="co-sb-url" placeholder="https://xxxx.supabase.co"></div>
+              <div class="form-group form-full"><label class="form-label">Supabase Anon Key</label><input class="form-control" id="co-sb-key" type="password" placeholder="eyJhbGci..."></div>
+            </div>
+            <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="testSupabaseConnection()">接続テスト</button>
+          </div>
+          <div class="section-card" style="margin-top:16px">
+            <div class="section-label">📧 Resend メール設定</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+              <a href="https://resend.com" target="_blank" style="color:var(--accent2)">resend.com</a> で無料アカウントを作成してAPIキーを取得してください（月3,000通まで無料）
+            </div>
+            <div class="form-grid">
+              <div class="form-group form-full"><label class="form-label">Resend API Key</label><input class="form-control" id="co-resend-key" type="password" placeholder="re_xxxxxxxxxxxx"></div>
+              <div class="form-group form-full"><label class="form-label">送信元メールアドレス（Resendで認証済みのドメイン）</label><input class="form-control" id="co-from-email" placeholder="noreply@yourdomain.com"></div>
+            </div>
+            <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="testEmailSend()">テストメール送信</button>
+          </div>
+          <div style="margin-top:20px;display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="saveCompany()">設定を保存する</button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ===== MODAL: 案件 ===== -->
+<div class="overlay" id="projectModal">
+  <div class="modal" style="max-width:800px">
+    <div class="modal-header">
+      <span class="modal-title" id="projectModalTitle">新規案件登録</span>
+      <button class="modal-close" onclick="closeModal('projectModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('project','info')">案件情報</div>
+        <div class="tab" onclick="switchTab('project','estimate')">見積・請求</div>
+        <div class="tab" onclick="switchTab('project','memo')">メモ</div>
+      </div>
+      <div class="tab-panel active" id="project-tab-info">
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">案件コード</label><input class="form-control" id="p-code" readonly></div>
+          <div class="form-group"><label class="form-label">ステータス</label>
+            <select class="form-control" id="p-status">
+              <option value="ordered">受注</option><option value="wip">作業中</option>
+              <option value="delivered">納品済</option><option value="invoiced">請求済</option>
+              <option value="paid">領収済</option>
+            </select>
+          </div>
+          <div class="form-group form-full"><label class="form-label">案件名 *</label><input class="form-control" id="p-name" placeholder="コーポレートサイトリニューアル"></div>
+          <div class="form-group"><label class="form-label">取引先 *</label><select class="form-control" id="p-client"></select></div>
+          <div class="form-group"><label class="form-label">担当者</label><input class="form-control" id="p-manager" placeholder="山田 太郎"></div>
+          <div class="form-group"><label class="form-label">受注日</label><input class="form-control" type="date" id="p-order-date"></div>
+          <div class="form-group"><label class="form-label">納期</label><input class="form-control" type="date" id="p-due-date"></div>
+          <div class="form-group form-full"><label class="form-label">案件概要</label><textarea class="form-control" id="p-desc" placeholder="案件の概要を入力..."></textarea></div>
+        </div>
+        <div class="divider"></div>
+        <div style="margin-bottom:8px;font-size:12px;color:var(--muted);font-weight:600">ステータス変更</div>
+        <div class="status-flow">
+          <div class="status-step" data-s="ordered" onclick="setStatus('ordered')">受注</div>
+          <div class="status-step" data-s="wip" onclick="setStatus('wip')">作業中</div>
+          <div class="status-step" data-s="delivered" onclick="setStatus('delivered')">納品済</div>
+          <div class="status-step" data-s="invoiced" onclick="setStatus('invoiced')">請求済</div>
+          <div class="status-step" data-s="paid" onclick="setStatus('paid')">領収済</div>
+        </div>
+      </div>
+      <div class="tab-panel" id="project-tab-estimate">
+        <div class="form-grid" style="margin-bottom:16px">
+          <div class="form-group"><label class="form-label">見積書番号</label><input class="form-control" id="p-est-no" readonly></div>
+          <div class="form-group"><label class="form-label">請求書番号</label><input class="form-control" id="p-inv-no" readonly></div>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;letter-spacing:0.05em;text-transform:uppercase">明細</div>
+        <table class="line-table">
+          <thead><tr><th style="width:42%">品目</th><th style="width:15%">数量</th><th style="width:25%">単価</th><th style="width:15%;text-align:right">金額</th><th style="width:30px"></th></tr></thead>
+          <tbody id="lineItems"></tbody>
+        </table>
+        <button class="add-line-btn" onclick="addLineItem()">＋ 明細を追加</button>
+        <div class="subtotal-area">
+          <div class="subtotal-row"><span class="lbl">小計</span><span class="val" id="sub-subtotal">¥0</span></div>
+          <div class="subtotal-row"><span class="lbl" id="sub-tax-label">消費税（10%）</span><span class="val" id="sub-tax">¥0</span></div>
+          <div class="subtotal-row grand"><span class="lbl">合計</span><span class="val" id="sub-total">¥0</span></div>
+        </div>
+      </div>
+      <div class="tab-panel" id="project-tab-memo">
+        <div class="form-group">
+          <label class="form-label">社内メモ</label>
+          <textarea class="form-control" id="p-memo" style="min-height:200px" placeholder="社内向けメモ..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="deleteProjectBtn" onclick="deleteProject()" style="margin-right:auto;color:var(--accent);border-color:var(--accent);display:none">🗑 削除</button>
+      <button class="btn btn-outline" onclick="closeModal('projectModal')">キャンセル</button>
+      <button class="btn btn-outline" onclick="openInvoicePreview('estimate')">📄 見積書</button>
+      <button class="btn btn-outline" onclick="openInvoicePreview('invoice')">🧾 請求書</button>
+      <button class="btn btn-primary" id="saveProjectBtn" onclick="saveProject()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: 見積書/請求書 ===== -->
+<div class="overlay" id="invoiceModal">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <span class="modal-title" id="invoiceModalTitle">見積書プレビュー</span>
+      <button class="modal-close" onclick="closeModal('invoiceModal')">✕</button>
+    </div>
+    <div class="modal-body" id="invoicePreviewContent"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('invoiceModal')">閉じる</button>
+      <button class="btn btn-outline" id="emailInvoiceBtn" onclick="sendByEmail()">📧 メールで送付</button>
+      <button class="btn btn-primary" onclick="downloadPDF()">📥 PDFダウンロード</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: メール送付 ===== -->
+<div class="overlay" id="emailModal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <span class="modal-title">メールで送付</span>
+      <button class="modal-close" onclick="closeModal('emailModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="emailConfigWarning" style="display:none;background:#fff8e1;border:1px solid #f0c040;border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:13px">
+        ⚠️ Resend APIキーが未設定です。<span style="color:var(--accent2);cursor:pointer;text-decoration:underline" onclick="closeModal('emailModal');showView('company')">自社情報設定</span>から設定してください。
+      </div>
+      <div class="form-grid">
+        <div class="form-group form-full"><label class="form-label">宛先 *</label><input class="form-control" id="mail-to" type="email" placeholder="client@example.com"></div>
+        <div class="form-group form-full"><label class="form-label">CC</label><input class="form-control" id="mail-cc" placeholder=""></div>
+        <div class="form-group form-full"><label class="form-label">件名</label><input class="form-control" id="mail-subject"></div>
+        <div class="form-group form-full"><label class="form-label">本文（編集可）</label>
+          <textarea class="form-control" id="mail-body" style="min-height:240px;line-height:1.9"></textarea>
+        </div>
+        <div class="form-group form-full" style="flex-direction:row;align-items:center;gap:8px">
+          <input type="checkbox" id="mail-include-link" checked>
+          <label for="mail-include-link" style="font-size:13px;cursor:pointer">見積書の受注リンクを本文に含める</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div id="emailSendStatus" style="margin-right:auto;font-size:13px;color:var(--muted)"></div>
+      <button class="btn btn-outline" onclick="closeModal('emailModal')">キャンセル</button>
+      <button class="btn btn-primary" id="sendEmailBtn" onclick="executeSendEmail()">📧 送信する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: 取引先 ===== -->
+<div class="overlay" id="clientModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <span class="modal-title" id="clientModalTitle">取引先登録</span>
+      <button class="modal-close" onclick="closeModal('clientModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group form-full"><label class="form-label">会社名 *</label><input class="form-control" id="cl-name" placeholder="株式会社サンプル"></div>
+        <div class="form-group"><label class="form-label">担当者名</label><input class="form-control" id="cl-contact" placeholder="鈴木 一郎"></div>
+        <div class="form-group"><label class="form-label">メールアドレス</label><input class="form-control" id="cl-email" type="email"></div>
+        <div class="form-group"><label class="form-label">電話番号</label><input class="form-control" id="cl-tel"></div>
+        <div class="form-group"><label class="form-label">郵便番号</label><input class="form-control" id="cl-zip"></div>
+        <div class="form-group form-full"><label class="form-label">住所</label><input class="form-control" id="cl-addr"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="deleteClientBtn" onclick="deleteClient()" style="margin-right:auto;color:var(--accent);border-color:var(--accent);display:none">🗑 削除</button>
+      <button class="btn btn-outline" onclick="closeModal('clientModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveClient()">保存する</button>
+    </div>
+  </div>
+</div>
+
+  <!-- DOMAIN MODAL -->
+  <div class="modal-overlay" id="domainModal" onclick="if(event.target===this)closeModal('domainModal')">
+    <div class="modal" style="max-width:500px">
+      <div class="modal-header">
+        <div class="modal-title" id="domainModalTitle">ドメイン追加</div>
+        <button class="modal-close" onclick="closeModal('domainModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group form-full">
+            <label class="form-label">ドメイン名 <span style="color:var(--accent2)">*</span></label>
+            <input class="form-control" id="dm-name" placeholder="example.com">
+          </div>
+          <div class="form-group form-full">
+            <label class="form-label">顧客名</label>
+            <select class="form-control" id="dm-client"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">更新月</label>
+            <select class="form-control" id="dm-renewal">
+              <option value="">未設定</option>
+              <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+              <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+              <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+              <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">請求月</label>
+            <select class="form-control" id="dm-billing">
+              <option value="">未設定</option>
+              <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+              <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+              <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+              <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+            </select>
+          </div>
+          <div class="form-group form-full">
+            <label class="form-label">レジストラ</label>
+            <input class="form-control" id="dm-registrar" placeholder="お名前.com、ムームードメイン など">
+          </div>
+          <div class="form-group form-full">
+            <label class="form-label">メモ</label>
+            <textarea class="form-control" id="dm-memo" rows="2" placeholder="備考など"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="deleteDomainBtn" onclick="deleteDomain()" style="margin-right:auto;color:var(--accent);border-color:var(--accent);display:none">🗑 削除</button>
+        <button class="btn btn-outline" onclick="closeModal('domainModal')">キャンセル</button>
+        <button class="btn btn-primary" onclick="saveDomain()">保存する</button>
+      </div>
+    </div>
+  </div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Supabase CDN -->
+<script src="js/_env.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script src="js/invoice.js"></script>
+<script src="js/email.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
