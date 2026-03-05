@@ -373,7 +373,7 @@ async function openNewProject() {
   document.getElementById('p-status').value = 'estimate_request';
   document.getElementById('p-name').value = '';
   document.getElementById('p-manager').value = '';
-  document.getElementById('p-order-date').value = today;
+  document.getElementById('p-order-date').value = '';
   document.getElementById('p-due-date').value = '';
   document.getElementById('p-desc').value = '';
   document.getElementById('p-memo').value = '';
@@ -481,8 +481,18 @@ async function deleteProject() {
 }
 
 function setStatus(s) {
+  const prev = document.getElementById('p-status').value;
   document.getElementById('p-status').value = s;
   updateStatusFlow(s);
+
+  // 受注ステータスに変わったとき、受注日が空なら今日をセット
+  const orderedStatuses = ['ordered','wip','delivered','invoiced','paid','lease','lease_delivered','lease_contracted','lease_invoiced'];
+  const orderDateEl = document.getElementById('p-order-date');
+  if (orderedStatuses.includes(s) && !orderedStatuses.includes(prev) && orderDateEl && !orderDateEl.value) {
+    orderDateEl.value = new Date().toISOString().split('T')[0];
+    orderDateEl.style.background = '#fff8e1';
+    setTimeout(() => { orderDateEl.style.background = ''; }, 1500);
+  }
 }
 
 function updateStatusFlow(s) {
