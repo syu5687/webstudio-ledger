@@ -82,7 +82,7 @@
     <div class="topbar">
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-0801</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-0815</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -516,7 +516,9 @@
               <div class="form-group"><label class="form-label">郵便番号</label><input class="form-control" id="co-zip"></div>
               <div class="form-group"><label class="form-label">電話番号</label><input class="form-control" id="co-tel"></div>
               <div class="form-group form-full"><label class="form-label">住所</label><input class="form-control" id="co-addr"></div>
+              <div class="form-group"><label class="form-label">FAX番号</label><input class="form-control" id="co-fax" placeholder="0955-XX-XXXX"></div>
               <div class="form-group form-full"><label class="form-label">メールアドレス（送信元）</label><input class="form-control" id="co-email" type="email"></div>
+              <div class="form-group form-full"><label class="form-label">インボイス登録番号</label><input class="form-control" id="co-regno" placeholder="T8300002008689"></div>
             </div>
           </div>
           <div class="section-card" style="margin-top:16px">
@@ -561,10 +563,23 @@
         <div class="form-grid">
           <div class="form-group"><label class="form-label">案件コード</label><input class="form-control" id="p-code" readonly></div>
           <div class="form-group"><label class="form-label">ステータス</label>
-            <select class="form-control" id="p-status">
-              <option value="ordered">受注</option><option value="wip">作業中</option>
-              <option value="delivered">納品済</option><option value="invoiced">請求済</option>
-              <option value="paid">領収済</option>
+            <select class="form-control" id="p-status" onchange="updateStatusFlow(this.value)">
+              <option value="preparation">案件準備</option>
+              <option value="estimate_request">見積依頼</option>
+              <option value="estimating">見積提示中</option>
+              <option value="ordered">受注</option>
+              <option value="wip">作業中</option>
+              <option value="delivered">納品済</option>
+              <option value="invoiced">請求済</option>
+              <option value="paid">入金済</option>
+              <option value="unpaid">未入金</option>
+              <option value="lost">失注</option>
+              <option value="no_change">No変更</option>
+              <option value="lease">リース</option>
+              <option value="lease_delivered">リース納品済</option>
+              <option value="lease_contracted">リース契約済</option>
+              <option value="lease_invoiced">リース請求済</option>
+              <option value="domain_renewal">ドメイン更新</option>
             </select>
           </div>
           <div class="form-group form-full"><label class="form-label">案件名 *</label><input class="form-control" id="p-name" placeholder="コーポレートサイトリニューアル"></div>
@@ -576,12 +591,23 @@
         </div>
         <div class="divider"></div>
         <div style="margin-bottom:8px;font-size:12px;color:var(--muted);font-weight:600">ステータス変更</div>
-        <div class="status-flow">
+        <div class="status-flow" style="flex-wrap:wrap;gap:6px">
+          <div class="status-step" data-s="preparation" onclick="setStatus('preparation')">案件準備</div>
+          <div class="status-step" data-s="estimate_request" onclick="setStatus('estimate_request')">見積依頼</div>
+          <div class="status-step" data-s="estimating" onclick="setStatus('estimating')">見積提示中</div>
           <div class="status-step" data-s="ordered" onclick="setStatus('ordered')">受注</div>
           <div class="status-step" data-s="wip" onclick="setStatus('wip')">作業中</div>
           <div class="status-step" data-s="delivered" onclick="setStatus('delivered')">納品済</div>
           <div class="status-step" data-s="invoiced" onclick="setStatus('invoiced')">請求済</div>
-          <div class="status-step" data-s="paid" onclick="setStatus('paid')">領収済</div>
+          <div class="status-step" data-s="paid" onclick="setStatus('paid')">入金済</div>
+          <div class="status-step" data-s="unpaid" onclick="setStatus('unpaid')">未入金</div>
+          <div class="status-step" data-s="lost" onclick="setStatus('lost')">失注</div>
+          <div class="status-step" data-s="no_change" onclick="setStatus('no_change')">No変更</div>
+          <div class="status-step" data-s="lease" onclick="setStatus('lease')">リース</div>
+          <div class="status-step" data-s="lease_delivered" onclick="setStatus('lease_delivered')">リース納品済</div>
+          <div class="status-step" data-s="lease_contracted" onclick="setStatus('lease_contracted')">リース契約済</div>
+          <div class="status-step" data-s="lease_invoiced" onclick="setStatus('lease_invoiced')">リース請求済</div>
+          <div class="status-step" data-s="domain_renewal" onclick="setStatus('domain_renewal')">ドメイン更新</div>
         </div>
       </div>
       <div class="tab-panel" id="project-tab-estimate">

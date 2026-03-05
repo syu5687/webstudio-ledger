@@ -16,7 +16,8 @@
  * @returns {Promise<{success: boolean, id?: string, error?: string}>}
  */
 async function sendEmail({ to, cc, subject, html, text }) {
-  const { apiKey, fromEmail } = window.CFG.resend;
+  const apiKey = window.CFG.resendApiKey;
+  const fromEmail = window.CFG.resendFromEmail;
 
   if (!apiKey) {
     return { success: false, error: 'Resend APIキーが設定されていません' };
@@ -259,7 +260,7 @@ function sendByEmail() {
 
   // Resend未設定の警告
   const warn = document.getElementById('emailConfigWarning');
-  if (warn) warn.style.display = window.CFG.resend.apiKey ? 'none' : 'block';
+  if (warn) warn.style.display = window.CFG.resendApiKey ? 'none' : 'block';
 
   document.getElementById('mail-to').value = client.email || '';
   document.getElementById('mail-cc').value = co.email || '';
@@ -327,7 +328,7 @@ async function executeSendEmail() {
 
   // HTML本文生成
   let html;
-  if (!window.CFG.resend.apiKey) {
+  if (!window.CFG.resendApiKey) {
     // Resend未設定の場合はテキストのみ（mailto風）
     toast('Resend APIキー未設定のため送信できません', '❌', 'error');
     if (btn) { btn.disabled = false; btn.textContent = '📧 送信する'; }

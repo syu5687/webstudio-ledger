@@ -124,7 +124,7 @@ function showView(view) {
 /* ── KPI ── */
 function updateKPI() {
   const projects = _cache.projects;
-  const statuses = ['all','ordered','wip','delivered','invoiced','paid'];
+  const statuses = ['all','preparation','estimate_request','estimating','ordered','wip','delivered','invoiced','paid','unpaid','lost','no_change','lease','lease_delivered','lease_contracted','lease_invoiced','domain_renewal'];
   statuses.forEach(s => {
     const list = s === 'all' ? projects : projects.filter(p => p.status === s);
     const total = list.reduce((sum, p) => sum + calcSubtotal(p.lines), 0);
@@ -193,12 +193,22 @@ function renderTable() {
 }
 
 function isOverdue(dateStr, status) {
-  if (['invoiced','paid','delivered'].includes(status)) return false;
+  if (['preparation','invoiced','paid','delivered','lease_contracted','lease_invoiced','lost','domain_renewal'].includes(status)) return false;
   return new Date(dateStr) < new Date();
 }
 
 function statusBadge(s) {
-  const map = { ordered:'受注', wip:'作業中', delivered:'納品済', invoiced:'請求済', paid:'領収済' };
+  const map = {
+    preparation:'案件準備',
+    estimate_request:'見積依頼',  estimating:'見積提示中',
+    ordered:'受注',               wip:'作業中',
+    delivered:'納品済',           invoiced:'請求済',
+    paid:'入金済',                unpaid:'未入金',
+    lost:'失注',                  no_change:'No変更',
+    lease:'リース',               lease_delivered:'リース納品済',
+    lease_contracted:'リース契約済', lease_invoiced:'リース請求済',
+    domain_renewal:'ドメイン更新',
+  };
   return `<span class="badge badge-${s}">${map[s] || s}</span>`;
 }
 
@@ -226,7 +236,7 @@ function renderOrdersTable() {
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 
   // サマリー
-  ['ordered','wip'].forEach(s => {
+  ['ordered','wip','lease','lease_delivered','lease_contracted'].forEach(s => {
     const list = _cache.projects.filter(p => p.status === s);
     const el = document.getElementById(`ord-count-${s}`);
     const ae = document.getElementById(`ord-amt-${s}`);
@@ -241,7 +251,7 @@ function renderOrdersTable() {
 
   const list = _cache.projects.filter(p => {
     const client = getClientById(p.clientId);
-    return ['ordered','wip'].includes(p.status) &&
+    return ['ordered','wip','lease','lease_delivered','lease_contracted'].includes(p.status) &&
       (!sf || p.status === sf) &&
       (!search || (p.name||'').toLowerCase().includes(search) || (client?.name||'').toLowerCase().includes(search));
   });
@@ -286,7 +296,14 @@ async function changeProjectStatus(id, newStatus) {
   if (!p) return;
   try {
     await dbUpdateProjectStatus(id, newStatus, { isNewOrder: false });
-    const labels = { wip:'作業中', delivered:'納品済', invoiced:'請求済', paid:'領収済' };
+    const labels = {
+    estimate_request:'見積依頼', estimating:'見積提示中',
+    ordered:'受注', wip:'作業中', delivered:'納品済',
+    invoiced:'請求済', paid:'入金済', unpaid:'未入金',
+    lost:'失注', no_change:'No変更', lease:'リース',
+    lease_delivered:'リース納品済', lease_contracted:'リース契約済',
+    lease_invoiced:'リース請求済', domain_renewal:'ドメイン更新',
+  };
     toast(`「${p.name}」を${labels[newStatus]}に変更`, '✅', 'success');
     renderOrdersTable();
     renderTable();
@@ -353,7 +370,7 @@ async function openNewProject() {
   ]);
 
   document.getElementById('p-code').value = code;
-  document.getElementById('p-status').value = 'ordered';
+  document.getElementById('p-status').value = 'estimate_request';
   document.getElementById('p-name').value = '';
   document.getElementById('p-manager').value = '';
   document.getElementById('p-order-date').value = today;
@@ -366,7 +383,7 @@ async function openNewProject() {
   populateClientSelect();
   clearLineItems();
   addLineItem();
-  updateStatusFlow('ordered');
+  updateStatusFlow('estimate_request');
   switchTab('project','info');
   openModal('projectModal');
 }
@@ -1000,7 +1017,7 @@ function renderDashboard() {
 
   // KPI
   const totalSales = projects.reduce((s, p) => s + calcTotal(p.lines), 0);
-  const ordered    = projects.filter(p => ['ordered','wip','delivered','invoiced','paid'].includes(p.status)).length;
+  const ordered    = projects.filter(p => ['ordered','wip','delivered','invoiced','paid','lease','lease_delivered','lease_contracted','lease_invoiced'].includes(p.status)).length;
   const paid       = projects.filter(p => p.status === 'paid').length;
   const avgSales   = projects.length ? Math.round(totalSales / projects.length) : 0;
 
@@ -1054,7 +1071,14 @@ function renderDashboard() {
   }
 
   // ステータス別件数
-  const statusLabels = { ordered:'受注', wip:'作業中', delivered:'納品済', invoiced:'請求済', paid:'入金済' };
+  const statusLabels = {
+    estimate_request:'見積依頼', estimating:'見積提示中',
+    ordered:'受注', wip:'作業中', delivered:'納品済',
+    invoiced:'請求済', paid:'入金済', unpaid:'未入金',
+    lost:'失注', no_change:'No変更', lease:'リース',
+    lease_delivered:'リース納品済', lease_contracted:'リース契約済',
+    lease_invoiced:'リース請求済', domain_renewal:'ドメイン更新',
+  };
   const statusCounts = Object.keys(statusLabels).map(k => projects.filter(p => p.status === k).length);
   destroyChart('statusChart');
   const statusCtx = document.getElementById('statusChart');

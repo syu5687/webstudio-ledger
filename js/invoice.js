@@ -125,7 +125,7 @@ function renderInvoicePreview(p, type) {
               TEL: ${co.tel || ''}<br>
               ${co.fax ? 'FAX: ' + co.fax + '<br>' : ''}
               ${co.email || ''}<br>
-              ${co.regNo ? '登録番号：' + co.regNo : ''}
+              ${co.regNo ? '<span style="font-size:11px;color:#555">登録番号：' + co.regNo + '</span>' : ''}
             </div>
             <img src="${STAMP_B64}" style="width:80px;height:80px;object-fit:contain;margin-left:12px;margin-top:4px" alt="社印">
           </div>
