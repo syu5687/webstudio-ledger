@@ -282,7 +282,8 @@ function sendByEmail() {
   document.getElementById('mail-to').value      = client.email || '';
   document.getElementById('mail-cc').value      = co.email || '';
   document.getElementById('mail-subject').value = `【${isEstimate ? '見積書' : '請求書'}送付】${p.name}`;
-  document.getElementById('mail-view-url').value = viewUrl;
+  const viewUrlEl = document.getElementById('mail-view-url');
+  if (viewUrlEl) viewUrlEl.value = viewUrl;
 
   const sub   = calcSubtotal(p.lines);
   const grand = sub + Math.round(sub * (Number(co.taxRate) || 10) / 100);
@@ -292,8 +293,7 @@ function sendByEmail() {
 
   document.getElementById('mail-body').value =
 `${client.name || ''} 御中
-${client.contact ? client.contact + ' 様
-' : ''}
+${client.contact ? client.contact + ' 様' + '\n' : ''}
 いつもお世話になっております。
 ${co.name} でございます。
 
@@ -321,7 +321,7 @@ MAIL: ${co.email || ''}
 ────────────────────────`;
 
   closeModal('invoiceModal');
-  openModal('emailModal');
+  setTimeout(() => openModal('emailModal'), 50);
 }
 
 function copyViewUrl() {
