@@ -386,8 +386,10 @@ async function openNewProject() {
   document.getElementById('p-due-date').value = '';
   document.getElementById('p-desc').value = '';
   document.getElementById('p-memo').value = '';
-  document.getElementById('p-est-no').value = estNo;
-  document.getElementById('p-inv-no').value = invNo;
+  document.getElementById('p-est-no').value  = estNo;
+  document.getElementById('p-est-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('p-inv-no').value   = invNo;
+  document.getElementById('p-inv-date').value = '';
 
   populateClientSelect();
   clearLineItems();
@@ -412,8 +414,10 @@ function openEditProject(id) {
   document.getElementById('p-due-date').value = p.dueDate || '';
   document.getElementById('p-desc').value = p.desc || '';
   document.getElementById('p-memo').value = p.memo || '';
-  document.getElementById('p-est-no').value = p.estNo || '';
-  document.getElementById('p-inv-no').value = p.invNo || '';
+  document.getElementById('p-est-no').value   = p.estNo  || '';
+  document.getElementById('p-est-date').value = p.estDate || '';
+  document.getElementById('p-inv-no').value   = p.invNo  || '';
+  document.getElementById('p-inv-date').value = p.invDate || '';
 
   populateClientSelect(p.clientId);
   clearLineItems();
@@ -460,8 +464,10 @@ async function saveProject() {
       dueDate: document.getElementById('p-due-date')?.value || null,
       desc: document.getElementById('p-desc')?.value,
       memo: document.getElementById('p-memo')?.value,
-      estNo: document.getElementById('p-est-no')?.value,
-      invNo: document.getElementById('p-inv-no')?.value,
+      estNo:    document.getElementById('p-est-no')?.value,
+      estDate:  document.getElementById('p-est-date')?.value || null,
+      invNo:    document.getElementById('p-inv-no')?.value,
+      invDate:  document.getElementById('p-inv-date')?.value || null,
       lines: collectLines(),
       orderRoute: window._editingProjectId ?
         (_cache.projects.find(p => p.id === window._editingProjectId)?.orderRoute || '手動登録') :

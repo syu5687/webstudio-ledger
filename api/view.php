@@ -131,7 +131,15 @@ if ($sbUrl && $sbKey) {
 
 $docTitle = $type === 'estimate' ? '見積書' : '請求書';
 $docNo    = $type === 'estimate' ? ($p['est_no'] ?? '—') : ($p['inv_no'] ?? '—');
-$today    = date('Y年m月d日');
+
+// 日付：手動設定値があればそれを優先、なければ今日
+$rawDate  = $type === 'estimate' ? ($p['est_date'] ?? '') : ($p['inv_date'] ?? '');
+if ($rawDate) {
+    $dt    = new DateTime($rawDate);
+    $today = $dt->format('Y年n月j日');
+} else {
+    $today = date('Y年n月j日');
+}
 $isEst    = $type === 'estimate';
 
 $lineRows = '';

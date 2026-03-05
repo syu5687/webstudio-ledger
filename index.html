@@ -88,7 +88,7 @@
     <div class="topbar">
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-2340</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-2350</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -735,7 +735,9 @@
       <div class="tab-panel" id="project-tab-estimate">
         <div class="form-grid" style="margin-bottom:16px">
           <div class="form-group"><label class="form-label">見積書番号</label><input class="form-control" id="p-est-no" readonly></div>
+          <div class="form-group"><label class="form-label">見積日</label><input class="form-control" id="p-est-date" type="date"></div>
           <div class="form-group"><label class="form-label">請求書番号</label><input class="form-control" id="p-inv-no" readonly></div>
+          <div class="form-group"><label class="form-label">請求日</label><input class="form-control" id="p-inv-date" type="date"></div>
         </div>
         <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;letter-spacing:0.05em;text-transform:uppercase">明細</div>
         <table class="line-table">
