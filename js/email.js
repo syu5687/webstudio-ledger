@@ -157,6 +157,50 @@ function buildInvoiceEmailHtml(project, client, company, viewUrl) {
 }
 
 
+/**
+ * メール送付モーダルのタブ切り替え
+ */
+function switchEmailTab(tab) {
+  const editPane = document.getElementById('emailPane-edit');
+  const previewPane = document.getElementById('emailPane-preview');
+  const editTab = document.getElementById('emailTab-edit');
+  const previewTab = document.getElementById('emailTab-preview');
+  if (!editPane || !previewPane) return;
+
+  if (tab === 'edit') {
+    editPane.style.display = '';
+    previewPane.style.display = 'none';
+    editTab.style.borderBottomColor = 'var(--text)';
+    editTab.style.color = 'var(--text)';
+    previewTab.style.borderBottomColor = 'transparent';
+    previewTab.style.color = 'var(--muted)';
+  } else {
+    editPane.style.display = 'none';
+    previewPane.style.display = '';
+    editTab.style.borderBottomColor = 'transparent';
+    editTab.style.color = 'var(--muted)';
+    previewTab.style.borderBottomColor = 'var(--text)';
+    previewTab.style.color = 'var(--text)';
+
+    // HTMLプレビュー生成
+    const { project: p, type } = window._currentInvoiceData || {};
+    const co = window.CFG.company;
+    const client = p ? (getClientById(p.clientId) || p._client || {}) : {};
+    const isEstimate = type === 'estimate';
+    const viewUrl = document.getElementById('mail-view-url')?.value || '';
+    let html = '';
+    if (isEstimate && p) {
+      html = buildEstimateEmailHtml(p, client, co, viewUrl);
+    } else if (p) {
+      html = buildInvoiceEmailHtml(p, client, co, viewUrl);
+    } else {
+      html = '<p style="padding:32px;color:#888">案件情報がありません</p>';
+    }
+    const iframe = document.getElementById('emailHtmlPreview');
+    if (iframe) iframe.srcdoc = html;
+  }
+}
+
 function sendByEmail() {
   const { project: p, type } = window._currentInvoiceData || {};
   if (!p) {
@@ -221,7 +265,10 @@ function sendByEmail() {
   document.getElementById('mail-body').value = mailBody;
 
   closeModal('invoiceModal');
-  setTimeout(() => openModal('emailModal'), 50);
+  setTimeout(() => {
+    switchEmailTab('edit');
+    openModal('emailModal');
+  }, 50);
 }
 
 function copyViewUrl() {

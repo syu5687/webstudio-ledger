@@ -85,7 +85,7 @@
     <div class="topbar">
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-0956</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-1110</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -670,32 +670,52 @@
 
 <!-- ===== MODAL: メール送付 ===== -->
 <div class="overlay" id="emailModal">
-  <div class="modal" style="max-width:640px">
+  <div class="modal" style="max-width:680px">
     <div class="modal-header">
       <span class="modal-title">メールで送付</span>
       <button class="modal-close" onclick="closeModal('emailModal')">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="padding-top:0">
+      <!-- タブ -->
+      <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px">
+        <button id="emailTab-edit" onclick="switchEmailTab('edit')" style="padding:12px 20px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid var(--text);margin-bottom:-2px;color:var(--text);cursor:pointer">✏️ 編集</button>
+        <button id="emailTab-preview" onclick="switchEmailTab('preview')" style="padding:12px 20px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--muted);cursor:pointer">👁 HTMLプレビュー</button>
+      </div>
+
       <div id="emailConfigWarning" style="display:none;background:#fff8e1;border:1px solid #f0c040;border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:13px">
         ⚠️ Resend APIキーが未設定です。<span style="color:var(--accent2);cursor:pointer;text-decoration:underline" onclick="closeModal('emailModal');showView('company')">自社情報設定</span>から設定してください。
       </div>
-      <div class="form-grid">
-        <div class="form-group form-full"><label class="form-label">宛先 *</label><input class="form-control" id="mail-to" type="email" placeholder="client@example.com"></div>
-        <div class="form-group form-full"><label class="form-label">CC</label><input class="form-control" id="mail-cc" placeholder=""></div>
-        <div class="form-group form-full"><label class="form-label">件名</label><input class="form-control" id="mail-subject"></div>
-        <div class="form-group form-full"><label class="form-label">本文（編集可）</label>
-          <textarea class="form-control" id="mail-body" style="min-height:240px;line-height:1.9"></textarea>
-        </div>
-        <div class="form-group form-full">
-          <label class="form-label">閲覧URL（本文に自動挿入されます）</label>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input class="form-control" id="mail-view-url" readonly style="font-size:12px;color:var(--muted);background:var(--surface)">
-            <button class="btn btn-outline btn-sm" onclick="copyViewUrl()" style="white-space:nowrap;flex-shrink:0">📋 コピー</button>
+
+      <!-- 編集タブ -->
+      <div id="emailPane-edit">
+        <div class="form-grid">
+          <div class="form-group form-full"><label class="form-label">宛先 *</label><input class="form-control" id="mail-to" type="email" placeholder="client@example.com"></div>
+          <div class="form-group form-full"><label class="form-label">CC</label><input class="form-control" id="mail-cc" placeholder=""></div>
+          <div class="form-group form-full"><label class="form-label">件名</label><input class="form-control" id="mail-subject"></div>
+          <div class="form-group form-full"><label class="form-label">本文（テキスト版・編集可）</label>
+            <textarea class="form-control" id="mail-body" style="min-height:200px;line-height:1.9"></textarea>
+          </div>
+          <div class="form-group form-full">
+            <label class="form-label">閲覧URL</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="form-control" id="mail-view-url" readonly style="font-size:12px;color:var(--muted);background:var(--surface)">
+              <button class="btn btn-outline btn-sm" onclick="copyViewUrl()" style="white-space:nowrap;flex-shrink:0">📋 コピー</button>
+            </div>
+          </div>
+          <div class="form-group form-full" style="flex-direction:row;align-items:center;gap:8px">
+            <input type="checkbox" id="mail-include-link" checked>
+            <label for="mail-include-link" style="font-size:13px;cursor:pointer">閲覧URLを本文に含める</label>
           </div>
         </div>
-        <div class="form-group form-full" style="flex-direction:row;align-items:center;gap:8px">
-          <input type="checkbox" id="mail-include-link" checked>
-          <label for="mail-include-link" style="font-size:13px;cursor:pointer">閲覧URLを本文に含める</label>
+      </div>
+
+      <!-- プレビュータブ -->
+      <div id="emailPane-preview" style="display:none">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding:8px 12px;background:var(--surface);border-radius:4px">
+          ℹ️ 実際にクライアントへ送信されるHTMLメールのプレビューです。閲覧URLのリンクから見積書・請求書の詳細を確認できます。
+        </div>
+        <div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;max-height:480px;overflow-y:auto">
+          <iframe id="emailHtmlPreview" style="width:100%;min-height:460px;border:none;display:block" srcdoc=""></iframe>
         </div>
       </div>
     </div>
