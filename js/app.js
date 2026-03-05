@@ -1173,7 +1173,6 @@ function updateBillingTotal() {
 async function createBatchInvoice() {
   if (!_billingSelectedClientId) return;
 
-  // チェック済み案件・ドメイン・ホスティングを収集
   const checkedProjIds    = [...document.querySelectorAll('.billing-proj-check:checked')].map(c => c.dataset.id);
   const checkedDomainIds  = [...document.querySelectorAll('.billing-domain-check:checked')].map(c => c.dataset.id);
   const checkedHostingIds = [...document.querySelectorAll('.billing-hosting-check:checked')].map(c => c.dataset.id);
@@ -1182,90 +1181,74 @@ async function createBatchInvoice() {
     toast('請求対象を選択してください', '⚠️'); return;
   }
 
-  // 明細を構築
-  const lines = [];
-  checkedProjIds.forEach(pid => {
-    const proj = (_cache.projects || []).find(p => p.id === pid);
-    if (proj) (proj.lines || []).forEach(l => lines.push({ ...l }));
-  });
+  // ドメイン・ホスティングの追加明細
+  const extraLines = [];
   checkedDomainIds.forEach(did => {
     const dom = (_cache.domains || []).find(d => d.id === did);
-    if (dom && dom.price) {
-      lines.push({ name: `ドメイン更新費（${dom.domain_name}）`, qty: 1, unit: '年', price: Number(dom.price) });
-    }
+    if (dom && dom.price)
+      extraLines.push({ name: `ドメイン更新費（${dom.domain_name}）`, qty: 1, unit: '年', price: Number(dom.price) });
   });
   checkedHostingIds.forEach(hid => {
     const h = (_cache.hostings || []).find(x => x.id === hid);
     if (h) {
       const fee = Number(h.monthly_fee || h.annual_fee || 0);
       const unit = h.monthly_fee ? '月' : '年';
-      if (fee > 0) lines.push({ name: `ホスティング費（${h.service_name}）`, qty: 1, unit, price: fee });
+      if (fee > 0) extraLines.push({ name: `ホスティング費（${h.service_name}）`, qty: 1, unit, price: fee });
     }
   });
 
-  if (lines.length === 0) { toast('明細がありません。各項目に金額を設定してください', '⚠️'); return; }
-
-  const client = getClientById(_billingSelectedClientId);
   const now = new Date();
   const invNo = `INV-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
-  // 案件名を自動生成
-  let projName = '';
-  if (checkedProjIds.length > 0) {
-    projName = (_cache.projects||[]).find(p=>p.id===checkedProjIds[0])?.name || '請求書';
-    if (checkedProjIds.length > 1) projName += ` 他${checkedProjIds.length-1}件`;
-    if (checkedDomainIds.length > 0 || checkedHostingIds.length > 0) projName += '＋保守費';
-  } else if (checkedDomainIds.length > 0 || checkedHostingIds.length > 0) {
-    const parts = [];
-    if (checkedDomainIds.length > 0) parts.push(`ドメイン${checkedDomainIds.length}件`);
-    if (checkedHostingIds.length > 0) parts.push(`ホスティング${checkedHostingIds.length}件`);
-    projName = parts.join('・') + '請求';
-  }
-
-  // 新規案件として請求書を作成
-  const newProj = {
-    name:        projName,
-    clientId:    _billingSelectedClientId,
-    status:      'invoiced',
-    lines:       lines,
-    invNo:       invNo,
-    orderRoute:  '手動登録',
-  };
-
   try {
-    const saved = await dbSaveProject(newProj);
-    if (!saved?.id) throw new Error('保存失敗');
-    _cache.projects.unshift(saved);
-    renderTable(); updateKPI();
+    if (checkedProjIds.length > 0) {
+      // 既存案件にドメイン・ホスティング明細を追加してステータスを請求済に変更（新規案件は作らない）
+      for (const pid of checkedProjIds) {
+        const proj = (_cache.projects || []).find(p => p.id === pid);
+        if (!proj) continue;
+        const newLines = [...(proj.lines || []), ...extraLines];
+        const updData = { ...proj, status: 'invoiced', lines: newLines, invNo: proj.invNo || invNo };
+        const saved = await dbSaveProject(updData);
+        const idx = (_cache.projects||[]).findIndex(p => p.id === pid);
+        if (idx >= 0) _cache.projects[idx] = saved || { ..._cache.projects[idx], status: 'invoiced', lines: newLines };
+      }
+      const firstId = checkedProjIds[0];
+      openEditProject(firstId);
+      setTimeout(() => switchTab('project', 'estimate'), 200);
 
-    // 対象案件のステータスを「請求済」に更新
-    for (const pid of checkedProjIds) {
-      await dbUpdateProjectStatus(pid, 'invoiced');
-      const idx = (_cache.projects||[]).findIndex(p => p.id === pid);
-      if (idx >= 0) _cache.projects[idx].status = 'invoiced';
+    } else {
+      // 案件なし → ドメイン・ホスティングのみで新規案件を1件作成
+      if (extraLines.length === 0) { toast('明細がありません。金額を設定してください', '⚠️'); return; }
+      const parts = [];
+      if (checkedDomainIds.length > 0) parts.push(`ドメイン${checkedDomainIds.length}件`);
+      if (checkedHostingIds.length > 0) parts.push(`ホスティング${checkedHostingIds.length}件`);
+      const newProj = { name: parts.join('・')+'請求', clientId: _billingSelectedClientId,
+        status: 'invoiced', lines: extraLines, invNo, orderRoute: '手動登録' };
+      const saved = await dbSaveProject(newProj);
+      if (!saved?.id) throw new Error('保存失敗');
+      _cache.projects.unshift(saved);
+      openEditProject(saved.id);
+      setTimeout(() => switchTab('project', 'estimate'), 200);
     }
 
-    // ドメインのステータスを「請求済」に更新
+    // ドメイン → 請求済
     for (const did of checkedDomainIds) {
       await dbSaveDomain({ id: did, bill_status: 'invoiced' });
       const idx = (_cache.domains||[]).findIndex(d => d.id === did);
       if (idx >= 0) _cache.domains[idx].bill_status = 'invoiced';
     }
 
-    // ホスティングのステータスを「請求済」に更新（毎月は「未設定」に戻す）
+    // ホスティング → 毎月はリセット、それ以外は請求済
     for (const hid of checkedHostingIds) {
       const h = (_cache.hostings||[]).find(x => x.id === hid);
-      const newStatus = Number(h?.billing_month) === 0 ? null : 'invoiced'; // 毎月は来月また請求予定にするためリセット
+      const newStatus = Number(h?.billing_month) === 0 ? null : 'invoiced';
       await dbSaveHosting({ id: hid, bill_status: newStatus });
       const idx = (_cache.hostings||[]).findIndex(x => x.id === hid);
       if (idx >= 0) _cache.hostings[idx].bill_status = newStatus;
     }
 
+    renderTable(); updateKPI();
     toast('請求書を作成しました', '✅', 'success');
-    openEditProject(saved.id);
-    setTimeout(() => switchTab('project', 'estimate'), 200);
-
-    // billingビューを再描画
     renderBillingView();
 
   } catch(e) {
@@ -1418,7 +1401,91 @@ function renderMonthly() {
 
   const [year, month] = sel.value.split('-').map(Number);
 
-  // ドメイン（請求月が一致）
+  // ── 売掛表：請求済（未入金）案件 ──
+  const arProjects = (_cache.projects || []).filter(p => p.status === 'invoiced');
+  const arBody = document.getElementById('arTableBody');
+  const arFoot = document.getElementById('arTableFoot');
+  const arKPI  = document.getElementById('arKPI');
+
+  // 取引先別に集計
+  const clientTotals = {};
+  let arSubtotal = 0, arTax = 0;
+
+  arProjects.forEach(p => {
+    const sub = (p.lines || []).reduce((s, l) => s + floatval(l.price) * floatval(l.qty), 0);
+    const tax = Math.round(sub * 0.1);
+    const cid = p.clientId || '';
+    if (!clientTotals[cid]) clientTotals[cid] = { subtotal: 0, tax: 0, projects: [] };
+    clientTotals[cid].subtotal += sub;
+    clientTotals[cid].tax     += tax;
+    clientTotals[cid].projects.push(p);
+    arSubtotal += sub;
+    arTax      += tax;
+  });
+
+  if (arBody) {
+    if (arProjects.length === 0) {
+      arBody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">請求済（未入金）の案件はありません</td></tr>`;
+    } else {
+      let rows = '';
+      Object.entries(clientTotals).forEach(([cid, ct]) => {
+        const clientName = getClientById(cid)?.name || '不明';
+        ct.projects.forEach((p, i) => {
+          const sub = (p.lines || []).reduce((s, l) => s + floatval(l.price) * floatval(l.qty), 0);
+          const tax = Math.round(sub * 0.1);
+          rows += `<tr style="${i === 0 ? 'border-top:2px solid var(--border)' : ''}">
+            <td style="font-weight:${i===0?'600':'400'};color:${i===0?'var(--text)':'var(--muted)'}">${i===0 ? clientName : ''}</td>
+            <td style="font-size:13px">${p.name}</td>
+            <td style="font-size:12px;color:var(--muted)">${p.invNo || '—'}</td>
+            <td style="text-align:right;font-family:monospace">¥${sub.toLocaleString()}</td>
+            <td style="text-align:right;font-family:monospace;color:var(--muted)">¥${tax.toLocaleString()}</td>
+            <td style="text-align:right;font-family:monospace;font-weight:600">¥${(sub+tax).toLocaleString()}</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="openEditProject('${p.id}')">開く</button></td>
+          </tr>`;
+        });
+        // 取引先小計行
+        if (ct.projects.length > 1) {
+          rows += `<tr style="background:var(--surface2)">
+            <td colspan="3" style="text-align:right;font-size:12px;color:var(--muted)">${clientName} 小計</td>
+            <td style="text-align:right;font-family:monospace">¥${ct.subtotal.toLocaleString()}</td>
+            <td style="text-align:right;font-family:monospace;color:var(--muted)">¥${ct.tax.toLocaleString()}</td>
+            <td style="text-align:right;font-family:monospace;font-weight:600">¥${(ct.subtotal+ct.tax).toLocaleString()}</td>
+            <td></td>
+          </tr>`;
+        }
+      });
+      arBody.innerHTML = rows;
+    }
+  }
+
+  if (arFoot) {
+    arFoot.innerHTML = arProjects.length === 0 ? '' : `
+      <tr style="background:var(--surface3);border-top:2px solid var(--border)">
+        <td colspan="3" style="font-weight:700;padding:10px 12px">合計（${arProjects.length}件）</td>
+        <td style="text-align:right;font-family:monospace;font-weight:600">¥${arSubtotal.toLocaleString()}</td>
+        <td style="text-align:right;font-family:monospace;color:var(--muted)">¥${arTax.toLocaleString()}</td>
+        <td style="text-align:right;font-family:monospace;font-weight:700;font-size:15px;color:var(--accent2)">¥${(arSubtotal+arTax).toLocaleString()}</td>
+        <td></td>
+      </tr>`;
+  }
+
+  if (arKPI) {
+    arKPI.innerHTML = `
+      <div style="background:var(--surface);border-radius:10px;padding:16px;border:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--muted)">売掛件数</div>
+        <div style="font-size:28px;font-weight:700;margin-top:4px">${arProjects.length}<span style="font-size:13px;font-weight:400"> 件</span></div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:16px;border:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--muted)">売掛取引先数</div>
+        <div style="font-size:28px;font-weight:700;margin-top:4px">${Object.keys(clientTotals).length}<span style="font-size:13px;font-weight:400"> 社</span></div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:16px;border:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--muted)">売掛合計（税込）</div>
+        <div style="font-size:24px;font-weight:700;color:var(--accent2);margin-top:4px">¥${(arSubtotal+arTax).toLocaleString()}</div>
+      </div>`;
+  }
+
+  // ── ドメイン（請求月が一致）──
   const domains = (_cache.domains || []).filter(d => d.billing_month === month);
   const domainBody = document.getElementById('monthlyDomainBody');
   if (domainBody) {
@@ -1433,49 +1500,22 @@ function renderMonthly() {
         }).join('');
   }
 
-  // ホスティング（請求月が一致）
-  const hostings = (_cache.hostings || []).filter(h => h.billing_month === month);
+  // ── ホスティング（請求月が一致 or 毎月）──
+  const hostings = (_cache.hostings || []).filter(h => Number(h.billing_month) === 0 || h.billing_month === month);
   const hostingBody = document.getElementById('monthlyHostingBody');
-  let hostingTotal = 0;
   if (hostingBody) {
     hostingBody.innerHTML = hostings.length === 0
       ? `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">該当なし</td></tr>`
       : hostings.map(h => {
           const cn = getClientById(h.client_id)?.name || '-';
-          const fee = h.annual_fee || h.monthly_fee || 0;
-          hostingTotal += fee;
+          const billingLabel = Number(h.billing_month) === 0 ? '<span style="background:#7b1fa2;color:#fff;padding:1px 6px;border-radius:4px;font-size:10px">毎月</span>' : h.billing_month+'月';
           return `<tr><td>${h.service_name}</td><td>${cn}</td><td>${h.plan||'-'}</td>
             <td style="text-align:center">${h.renewal_month ? h.renewal_month+'月' : '-'}</td>
-            <td style="text-align:center">${h.billing_month}月</td>
-            <td style="text-align:right">${h.monthly_fee ? '¥'+h.monthly_fee.toLocaleString() : '-'}</td>
-            <td style="text-align:right">${h.annual_fee ? '¥'+h.annual_fee.toLocaleString() : '-'}</td></tr>`;
+            <td style="text-align:center">${billingLabel}</td>
+            <td style="text-align:right">${h.monthly_fee ? '¥'+Number(h.monthly_fee).toLocaleString() : '-'}</td>
+            <td style="text-align:right">${h.annual_fee ? '¥'+Number(h.annual_fee).toLocaleString() : '-'}</td></tr>`;
         }).join('');
   }
-
-  // KPI
-  const kpiEl = document.getElementById('monthlyKPI');
-  if (kpiEl) {
-    kpiEl.innerHTML = `
-      <div style="background:var(--surface);border-radius:10px;padding:16px">
-        <div style="font-size:12px;color:var(--muted)">ドメイン請求件数</div>
-        <div style="font-size:28px;font-weight:700;color:var(--text);margin-top:4px">${domains.length}<span style="font-size:14px;font-weight:400"> 件</span></div>
-      </div>
-      <div style="background:var(--surface);border-radius:10px;padding:16px">
-        <div style="font-size:12px;color:var(--muted)">ホスティング請求件数</div>
-        <div style="font-size:28px;font-weight:700;color:var(--text);margin-top:4px">${hostings.length}<span style="font-size:14px;font-weight:400"> 件</span></div>
-      </div>
-      <div style="background:var(--surface);border-radius:10px;padding:16px">
-        <div style="font-size:12px;color:var(--muted)">ホスティング請求合計</div>
-        <div style="font-size:28px;font-weight:700;color:var(--accent-green);margin-top:4px">¥${hostingTotal.toLocaleString()}</div>
-      </div>
-      <div style="background:var(--surface);border-radius:10px;padding:16px">
-        <div style="font-size:12px;color:var(--muted)">合計件数</div>
-        <div style="font-size:28px;font-weight:700;color:var(--text);margin-top:4px">${domains.length + hostings.length}<span style="font-size:14px;font-weight:400"> 件</span></div>
-      </div>`;
-  }
-
-  const totalEl = document.getElementById('monthlyTotal');
-  if (totalEl) totalEl.textContent = `合計 ${domains.length + hostings.length} 件`;
 }
 
 /* ============================================================
