@@ -16,19 +16,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$apiKey = getenv('RESEND_API_KEY') ?: '';
-if (!$apiKey) {
-    http_response_code(500);
-    echo json_encode(['error' => 'RESEND_API_KEY not configured']);
-    exit;
-}
+// 環境変数 → なければデフォルト値（config.jsと同じ）
+$apiKey = getenv('RESEND_API_KEY') ?: 're_2uUwkqYF_QELAZsUopJCY2KC3h2Ngw75J';
 
 $body = file_get_contents('php://input');
 $data = json_decode($body, true);
 
 if (!$data) {
     http_response_code(400);
-    echo json_encode(['error' => 'Invalid JSON']);
+    echo json_encode(['error' => 'Invalid JSON body']);
     exit;
 }
 
@@ -42,6 +38,7 @@ curl_setopt_array($ch, [
         'Authorization: Bearer ' . $apiKey,
     ],
     CURLOPT_TIMEOUT        => 15,
+    CURLOPT_SSL_VERIFYPEER => true,
 ]);
 
 $response = curl_exec($ch);

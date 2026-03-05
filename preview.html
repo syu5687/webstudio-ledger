@@ -1,0 +1,2707 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>案件台帳 | Web制作管理システム</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   WEBSTUDIO LEDGER SYSTEM — style.css
+   ============================================================ */
+:root {
+  --ink: #0f0f14;
+  --paper: #f5f3ee;
+  --accent: #d4451a;
+  --accent2: #1a6ed4;
+  --muted: #8a8680;
+  --border: #d8d4cc;
+  --card: #faf9f6;
+  --status-ordered: #2e8b57;
+  --status-wip: #1a6ed4;
+  --status-delivered: #7b4ea8;
+  --status-invoiced: #d4451a;
+  --status-paid: #4a4a4a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  font-size: 14px;
+}
+
+/* ── LAYOUT ── */
+.shell { display: flex; min-height: 100vh; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 220px;
+  min-height: 100vh;
+  background: var(--ink);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0; top: 0;
+  z-index: 100;
+}
+.logo { padding: 28px 20px 20px; border-bottom: 1px solid #2a2a32; }
+.logo-mark { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 6px; }
+.logo-name { font-size: 15px; font-weight: 700; line-height: 1.2; }
+.nav { padding: 16px 0; flex: 1; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 20px; font-size: 13px; color: #aaa; cursor: pointer; transition: all 0.15s; border-left: 3px solid transparent; }
+.nav-item:hover { color: #fff; background: rgba(255,255,255,0.05); }
+.nav-item.active { color: #fff; border-left-color: var(--accent); background: rgba(212,69,26,0.1); }
+.nav-icon { width: 16px; text-align: center; font-size: 15px; }
+.nav-section { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 0.12em; color: #555; padding: 16px 20px 6px; text-transform: uppercase; }
+.nav-badge { margin-left: auto; background: var(--accent); color: #fff; font-size: 10px; font-family: 'Space Mono', monospace; padding: 2px 6px; border-radius: 10px; font-weight: 700; }
+
+/* ── MAIN ── */
+.main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; }
+
+/* ── TOPBAR ── */
+.topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 28px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+.page-title { font-size: 17px; font-weight: 700; }
+.topbar-right { display: flex; gap: 10px; align-items: center; }
+
+/* ── BUTTONS ── */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 4px; border: none; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #b83a14; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--ink); }
+.btn-outline:hover:not(:disabled) { background: var(--border); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-ghost { background: transparent; color: var(--muted); padding: 6px 10px; }
+.btn-ghost:hover { color: var(--ink); background: var(--border); }
+.btn-green { background: var(--status-ordered); color: #fff; }
+.btn-green:hover { background: #1a6032; }
+
+/* ── CONTENT ── */
+.content { padding: 28px; flex: 1; }
+
+/* ── KPI CARDS ── */
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 28px; }
+.kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 16px 18px; cursor: pointer; transition: all 0.15s; position: relative; overflow: hidden; }
+.kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
+.kpi-card.active { box-shadow: 0 4px 16px rgba(0,0,0,0.12); outline: 2px solid var(--accent); }
+.kpi-label { font-size: 11px; color: var(--muted); font-weight: 500; margin-bottom: 8px; letter-spacing: 0.03em; }
+.kpi-count { font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.kpi-amount { font-size: 11px; color: var(--muted); }
+.kpi-card[data-status="all"]::before { background: var(--ink); }
+.kpi-card[data-status="ordered"]::before { background: var(--status-ordered); }
+.kpi-card[data-status="wip"]::before { background: var(--status-wip); }
+.kpi-card[data-status="delivered"]::before { background: var(--status-delivered); }
+.kpi-card[data-status="invoiced"]::before { background: var(--status-invoiced); }
+
+/* ── TOOLBAR ── */
+.toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.search-box { flex: 1; min-width: 200px; display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 0 12px; height: 36px; }
+.search-box input { border: none; background: transparent; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; outline: none; flex: 1; color: var(--ink); }
+.filter-select { height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--card); font-family: 'Noto Sans JP', sans-serif; font-size: 13px; color: var(--ink); cursor: pointer; outline: none; }
+
+/* ── TABLE ── */
+.table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; }
+thead th { background: var(--ink); color: #fff; padding: 11px 14px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; white-space: nowrap; }
+thead th:first-child { padding-left: 18px; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; cursor: pointer; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #f0ede8; }
+td { padding: 12px 14px; font-size: 13px; vertical-align: middle; }
+td:first-child { padding-left: 18px; }
+.project-code { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); }
+.project-name { font-weight: 500; margin-bottom: 2px; }
+.project-client { font-size: 12px; color: var(--muted); }
+.amount { font-family: 'Space Mono', monospace; text-align: right; }
+.row-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+tbody tr:hover .row-actions { opacity: 1; }
+
+/* ── BADGE ── */
+.badge { display: inline-block; padding: 3px 9px; border-radius: 3px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
+.badge-ordered { background: rgba(46,139,87,0.12); color: var(--status-ordered); }
+.badge-wip { background: rgba(26,110,212,0.12); color: var(--status-wip); }
+.badge-delivered { background: rgba(123,78,168,0.12); color: var(--status-delivered); }
+.badge-invoiced { background: rgba(212,69,26,0.12); color: var(--status-invoiced); }
+.badge-paid { background: rgba(74,74,74,0.1); color: var(--status-paid); }
+.badge-new { background: var(--status-ordered); color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 10px; font-family: 'Space Mono', monospace; }
+
+/* ── MODAL ── */
+.overlay { position: fixed; inset: 0; background: rgba(15,15,20,0.65); z-index: 200; display: none; align-items: flex-start; justify-content: center; padding: 40px 20px; overflow-y: auto; backdrop-filter: blur(2px); }
+.overlay.open { display: flex; }
+.modal { background: var(--paper); border-radius: 8px; width: 100%; max-width: 720px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); overflow: hidden; animation: slideIn 0.2s ease; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+.modal-header { background: var(--ink); color: #fff; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; }
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-close { background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer; padding: 4px 8px; line-height: 1; transition: color 0.15s; }
+.modal-close:hover { color: #fff; }
+.modal-body { padding: 24px; max-height: 70vh; overflow-y: auto; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; background: var(--card); }
+
+/* ── FORM ── */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-full { grid-column: 1/-1; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-label { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+.form-control { padding: 9px 12px; border: 1px solid var(--border); border-radius: 4px; background: #fff; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; color: var(--ink); outline: none; transition: border-color 0.15s; }
+.form-control:focus { border-color: var(--accent2); }
+.form-control[readonly] { background: var(--paper); color: var(--muted); }
+textarea.form-control { resize: vertical; min-height: 80px; }
+
+/* ── LINE ITEMS ── */
+.line-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.line-table th { font-size: 11px; color: var(--muted); font-weight: 600; padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+.line-table td { padding: 5px 4px; border-bottom: 1px solid var(--border); }
+.line-table input { width: 100%; border: 1px solid transparent; background: transparent; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; padding: 5px 6px; border-radius: 3px; color: var(--ink); outline: none; }
+.line-table input:focus { border-color: var(--accent2); background: #fff; }
+.line-total { font-family: 'Space Mono', monospace; font-size: 12px; padding: 5px 6px; text-align: right; }
+.add-line-btn { margin-top: 8px; font-size: 12px; color: var(--accent2); background: none; border: 1px dashed var(--border); padding: 8px; width: 100%; cursor: pointer; border-radius: 3px; transition: all 0.15s; font-family: 'Noto Sans JP', sans-serif; }
+.add-line-btn:hover { background: rgba(26,110,212,0.05); border-color: var(--accent2); }
+.delete-line { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 4px 6px; border-radius: 3px; transition: all 0.15s; }
+.delete-line:hover { color: var(--accent); background: rgba(212,69,26,0.08); }
+.subtotal-area { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-top: 12px; padding-top: 12px; border-top: 2px solid var(--ink); }
+.subtotal-row { display: flex; gap: 16px; font-size: 13px; }
+.subtotal-row .lbl { color: var(--muted); min-width: 110px; text-align: right; }
+.subtotal-row .val { font-family: 'Space Mono', monospace; min-width: 100px; text-align: right; }
+.subtotal-row.grand { font-weight: 700; font-size: 16px; }
+
+/* ── STATUS FLOW ── */
+.status-flow { display: flex; border-radius: 4px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 4px; }
+.status-step { flex: 1; padding: 9px 4px; text-align: center; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; background: var(--card); color: var(--muted); border-right: 1px solid var(--border); }
+.status-step:last-child { border-right: none; }
+.status-step.current { color: #fff; }
+.status-step[data-s="ordered"].current { background: var(--status-ordered); }
+.status-step[data-s="wip"].current { background: var(--status-wip); }
+.status-step[data-s="delivered"].current { background: var(--status-delivered); }
+.status-step[data-s="invoiced"].current { background: var(--status-invoiced); }
+.status-step[data-s="paid"].current { background: var(--status-paid); }
+.status-step:hover:not(.current) { background: #e8e4de; }
+
+/* ── TABS ── */
+.tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.tab { padding: 10px 18px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── INVOICE PREVIEW ── */
+.invoice-preview { background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 32px; font-size: 13px; }
+.inv-header { display: flex; justify-content: space-between; margin-bottom: 32px; }
+.inv-company { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.inv-addr { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.inv-title-block { text-align: right; }
+.inv-title { font-size: 26px; font-weight: 900; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 4px; }
+.inv-number { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted); }
+.inv-to { margin-bottom: 24px; }
+.inv-to-label { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 0.08em; margin-bottom: 4px; }
+.inv-to-name { font-size: 17px; font-weight: 700; margin-bottom: 2px; }
+.inv-items { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+.inv-items th { background: var(--ink); color: #fff; padding: 8px 12px; font-size: 11px; text-align: left; font-weight: 600; }
+.inv-items td { padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.inv-total-block { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.inv-row { display: flex; gap: 20px; font-size: 13px; }
+.inv-row .ll { color: var(--muted); min-width: 100px; text-align: right; }
+.inv-row .rr { font-family: 'Space Mono', monospace; min-width: 110px; text-align: right; }
+.inv-row.total { font-weight: 700; font-size: 16px; border-top: 2px solid var(--ink); padding-top: 8px; margin-top: 4px; }
+.inv-note { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+
+/* ── ORDER BUTTON ── */
+.order-cta { margin-top: 28px; padding: 24px; background: linear-gradient(135deg,#f0faf4,#e6f7ec); border: 2px solid #2e8b57; border-radius: 8px; text-align: center; }
+.order-cta-btn { background: #2e8b57; color: #fff; border: none; padding: 14px 40px; font-size: 15px; font-weight: 700; border-radius: 6px; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; box-shadow: 0 4px 16px rgba(46,139,87,0.35); transition: all 0.15s; }
+.order-cta-btn:hover { background: #1a6032; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(46,139,87,0.4); }
+
+/* ── SECTION CARD ── */
+.section-card { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 20px; }
+.section-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px; }
+
+/* ── TOAST ── */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 6px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); animation: toastIn 0.2s ease; display: flex; align-items: center; gap: 10px; border-left: 4px solid var(--accent); min-width: 240px; }
+.toast.success { border-left-color: var(--status-ordered); }
+.toast.error { border-left-color: var(--accent); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+/* ── EMPTY STATE ── */
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+
+/* ── SPINNER ── */
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── MISC ── */
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+.text-right { text-align: right; }
+.text-muted { color: var(--muted); }
+.font-mono { font-family: 'Space Mono', monospace; }
+
+/* ── PRINT ── */
+@media print {
+  .sidebar, .topbar, .toolbar, .kpi-row, .modal-footer, .order-cta { display: none !important; }
+  .main { margin-left: 0; }
+  .invoice-preview { border: none; }
+  .overlay { position: static; background: none; padding: 0; }
+  .modal { box-shadow: none; }
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+</style>
+</head>
+<body>
+
+<!-- ローディング画面 -->
+<div id="appLoading" style="position:fixed;inset:0;background:#0f0f14;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px">
+  <div style="font-family:'Space Mono',monospace;font-size:11px;color:#d4451a;letter-spacing:0.2em;text-transform:uppercase">Web Studio</div>
+  <div style="font-size:18px;font-weight:700;color:#fff">案件台帳 管理システム</div>
+  <div style="margin-top:8px;display:flex;gap:6px" id="loadingDots">
+    <span style="width:8px;height:8px;background:#d4451a;border-radius:50%;animation:dot 1.2s 0s infinite ease-in-out both"></span>
+    <span style="width:8px;height:8px;background:#d4451a;border-radius:50%;animation:dot 1.2s 0.2s infinite ease-in-out both"></span>
+    <span style="width:8px;height:8px;background:#d4451a;border-radius:50%;animation:dot 1.2s 0.4s infinite ease-in-out both"></span>
+  </div>
+  <div style="font-size:12px;color:#555;margin-top:4px" id="loadingMsg">接続中...</div>
+</div>
+<style>@keyframes dot{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}</style>
+
+<div class="shell" id="appShell" style="display:none">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">Web Studio</div>
+      <div class="logo-name">案件台帳<br>管理システム</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">メニュー</div>
+      <div class="nav-item active" data-view="ledger" onclick="showView('ledger')">
+        <span class="nav-icon">📋</span> 案件台帳
+      </div>
+      <div class="nav-item" data-view="orders" onclick="showView('orders')">
+        <span class="nav-icon">✅</span> 受注管理
+        <span class="nav-badge" id="orderBadge" style="display:none"></span>
+      </div>
+      <div class="nav-item" data-view="invoice" onclick="showView('invoice')">
+        <span class="nav-icon">🧾</span> 見積・請求書
+      </div>
+      <div class="nav-section">マスター</div>
+      <div class="nav-item" data-view="clients" onclick="showView('clients')">
+        <span class="nav-icon">🏢</span> 取引先
+      </div>
+      <div class="nav-item" data-view="domains" onclick="showView('domains')">
+        <span class="nav-icon">🌐</span> ドメイン管理
+      </div>
+      <div class="nav-item" data-view="company" onclick="showView('company')">
+        <span class="nav-icon">⚙️</span> 自社情報
+      </div>
+    </nav>
+    <div style="padding:16px 20px;border-top:1px solid #2a2a32;font-size:11px;color:#444">
+      <div id="dbStatus" style="display:flex;align-items:center;gap:6px">
+        <span style="width:6px;height:6px;border-radius:50%;background:#555;display:inline-block" id="dbDot"></span>
+        <span id="dbStatusText">未接続</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title" id="pageTitle">案件台帳</div>
+      <div class="topbar-right">
+        <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
+        <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- LEDGER VIEW -->
+      <div id="view-ledger">
+        <div class="kpi-row">
+          <div class="kpi-card" data-status="all" onclick="filterByStatus('all')">
+            <div class="kpi-label">全案件</div>
+            <div class="kpi-count" id="kpi-all">—</div>
+            <div class="kpi-amount" id="kpi-all-amt"></div>
+          </div>
+          <div class="kpi-card" data-status="ordered" onclick="filterByStatus('ordered')">
+            <div class="kpi-label">受注</div>
+            <div class="kpi-count" id="kpi-ordered">—</div>
+            <div class="kpi-amount" id="kpi-ordered-amt"></div>
+          </div>
+          <div class="kpi-card" data-status="wip" onclick="filterByStatus('wip')">
+            <div class="kpi-label">作業中</div>
+            <div class="kpi-count" id="kpi-wip">—</div>
+            <div class="kpi-amount" id="kpi-wip-amt"></div>
+          </div>
+          <div class="kpi-card" data-status="delivered" onclick="filterByStatus('delivered')">
+            <div class="kpi-label">納品済</div>
+            <div class="kpi-count" id="kpi-delivered">—</div>
+            <div class="kpi-amount" id="kpi-delivered-amt"></div>
+          </div>
+          <div class="kpi-card" data-status="invoiced" onclick="filterByStatus('invoiced')">
+            <div class="kpi-label">請求済</div>
+            <div class="kpi-count" id="kpi-invoiced">—</div>
+            <div class="kpi-amount" id="kpi-invoiced-amt"></div>
+          </div>
+        </div>
+        <div class="toolbar">
+          <div class="search-box">
+            <span>🔍</span>
+            <input type="text" id="searchInput" placeholder="案件名・取引先・コードで検索..." oninput="renderTable()">
+          </div>
+          <select class="filter-select" id="yearFilter" onchange="renderTable()">
+            <option value="">全年度</option>
+          </select>
+          <select class="filter-select" id="sortSelect" onchange="renderTable()">
+            <option value="date-desc">日付：新しい順</option>
+            <option value="date-asc">日付：古い順</option>
+            <option value="amount-desc">金額：高い順</option>
+            <option value="amount-asc">金額：低い順</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>案件コード</th>
+                <th>案件名 / 取引先</th>
+                <th>ステータス</th>
+                <th>受注日</th>
+                <th>納期</th>
+                <th style="text-align:right">金額（税抜）</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="projectTableBody"><tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">読み込み中...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ORDERS VIEW -->
+      <div id="view-orders" style="display:none">
+        <div id="orderNotifyBanner" style="display:none;margin-bottom:20px;background:linear-gradient(135deg,#1a6032,#2e8b57);color:#fff;border-radius:8px;padding:20px 24px;align-items:center;gap:16px">
+          <div style="font-size:32px">🎉</div>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:700;margin-bottom:4px" id="orderNotifyTitle">新しい受注が届きました！</div>
+            <div style="font-size:13px;opacity:0.85" id="orderNotifyDetail"></div>
+          </div>
+          <button onclick="document.getElementById('orderNotifyBanner').style.display='none'" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px">閉じる</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px 18px;border-top:3px solid var(--status-ordered)">
+            <div style="font-size:11px;color:var(--muted);font-weight:500;margin-bottom:8px">受注確定（未着手）</div>
+            <div style="font-family:'Space Mono',monospace;font-size:28px;font-weight:700" id="ord-count-ordered">—</div>
+            <div style="font-size:11px;color:var(--muted)" id="ord-amt-ordered"></div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px 18px;border-top:3px solid var(--status-wip)">
+            <div style="font-size:11px;color:var(--muted);font-weight:500;margin-bottom:8px">作業中</div>
+            <div style="font-family:'Space Mono',monospace;font-size:28px;font-weight:700" id="ord-count-wip">—</div>
+            <div style="font-size:11px;color:var(--muted)" id="ord-amt-wip"></div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px 18px;border-top:3px solid var(--ink)">
+            <div style="font-size:11px;color:var(--muted);font-weight:500;margin-bottom:8px">今月受注累計</div>
+            <div style="font-family:'Space Mono',monospace;font-size:28px;font-weight:700" id="ord-count-month">—</div>
+            <div style="font-size:11px;color:var(--muted)" id="ord-amt-month"></div>
+          </div>
+        </div>
+        <div class="toolbar">
+          <div class="search-box">
+            <span>🔍</span>
+            <input type="text" id="orderSearch" placeholder="案件名・取引先で検索..." oninput="renderOrdersTable()">
+          </div>
+          <select class="filter-select" id="orderStatusFilter" onchange="renderOrdersTable()">
+            <option value="">全ステータス</option>
+            <option value="ordered">受注</option>
+            <option value="wip">作業中</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>案件コード</th><th>案件名 / 取引先</th><th>ステータス</th>
+                <th>受注日時</th><th>受注経路</th>
+                <th style="text-align:right">金額（税抜）</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- INVOICE VIEW -->
+      <div id="view-invoice" style="display:none">
+        <div class="toolbar">
+          <div class="search-box">
+            <span>🔍</span>
+            <input type="text" id="invSearch" placeholder="見積書No・案件名で検索..." oninput="renderInvoiceList()">
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>見積書No / 請求書No</th><th>案件名 / 取引先</th>
+                <th>発行日</th><th style="text-align:right">金額（税込）</th>
+                <th>ステータス</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="invoiceListBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CLIENTS VIEW -->
+      <div id="view-clients" style="display:none">
+        <div class="toolbar">
+          <div class="search-box"><span>🔍</span>
+            <input type="text" id="clientSearch" placeholder="取引先名で検索..." oninput="renderClients()">
+          </div>
+          <button class="btn btn-primary" onclick="openClientModal()">＋ 取引先追加</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>取引先名</th><th>担当者</th><th>メール</th><th>電話</th><th>案件数</th><th></th></tr></thead>
+            <tbody id="clientTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DOMAINS VIEW -->
+      <div id="view-domains" style="display:none">
+        <div class="toolbar">
+          <div class="search-box"><span>🔍</span>
+            <input type="text" id="domainSearch" placeholder="ドメイン名・顧客名で検索..." oninput="renderDomains()">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="domainMonthFilter" class="form-control" style="width:140px" onchange="renderDomains()">
+              <option value="">更新月：すべて</option>
+              <option value="1">1月</option><option value="2">2月</option>
+              <option value="3">3月</option><option value="4">4月</option>
+              <option value="5">5月</option><option value="6">6月</option>
+              <option value="7">7月</option><option value="8">8月</option>
+              <option value="9">9月</option><option value="10">10月</option>
+              <option value="11">11月</option><option value="12">12月</option>
+            </select>
+            <button class="btn btn-primary" onclick="openDomainModal()">＋ ドメイン追加</button>
+          </div>
+        </div>
+
+        <!-- 更新月アラート -->
+        <div id="domainAlert" style="display:none;margin-bottom:12px;padding:10px 16px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;font-size:13px;color:#795548"></div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ドメイン名</th>
+                <th>顧客名</th>
+                <th>レジストラ</th>
+                <th style="text-align:center">更新月</th>
+                <th style="text-align:center">請求月</th>
+                <th>メモ</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="domainTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- COMPANY VIEW -->
+      <div id="view-company" style="display:none">
+        <div style="max-width:640px">
+          <h3 style="margin-bottom:20px;font-size:16px;font-weight:700">自社情報設定</h3>
+          <div class="section-card">
+            <div class="section-label">基本情報</div>
+            <div class="form-grid">
+              <div class="form-group form-full"><label class="form-label">会社名</label><input class="form-control" id="co-name"></div>
+              <div class="form-group"><label class="form-label">郵便番号</label><input class="form-control" id="co-zip"></div>
+              <div class="form-group"><label class="form-label">電話番号</label><input class="form-control" id="co-tel"></div>
+              <div class="form-group form-full"><label class="form-label">住所</label><input class="form-control" id="co-addr"></div>
+              <div class="form-group form-full"><label class="form-label">メールアドレス（送信元）</label><input class="form-control" id="co-email" type="email"></div>
+            </div>
+          </div>
+          <div class="section-card" style="margin-top:16px">
+            <div class="section-label">振込先情報</div>
+            <div class="form-grid">
+              <div class="form-group"><label class="form-label">銀行名・支店名</label><input class="form-control" id="co-bank"></div>
+              <div class="form-group"><label class="form-label">口座番号</label><input class="form-control" id="co-account"></div>
+              <div class="form-group form-full"><label class="form-label">口座名義</label><input class="form-control" id="co-holder"></div>
+            </div>
+          </div>
+          <div class="section-card" style="margin-top:16px">
+            <div class="section-label">請求設定</div>
+            <div class="form-grid">
+              <div class="form-group"><label class="form-label">消費税率（%）</label><input class="form-control" id="co-tax" type="number" value="10"></div>
+              <div class="form-group"><label class="form-label">支払期限（日数）</label><input class="form-control" id="co-due" type="number" value="30"></div>
+            </div>
+          </div>
+          <div class="section-card" style="margin-top:16px">
+            <div class="section-label">🔑 Supabase 接続設定</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Supabaseのプロジェクト設定 → API から取得できます</div>
+            <div class="form-grid">
+              <div class="form-group form-full"><label class="form-label">Supabase URL</label><input class="form-control" id="co-sb-url" placeholder="https://xxxx.supabase.co"></div>
+              <div class="form-group form-full"><label class="form-label">Supabase Anon Key</label><input class="form-control" id="co-sb-key" type="password" placeholder="eyJhbGci..."></div>
+            </div>
+            <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="testSupabaseConnection()">接続テスト</button>
+          </div>
+          <div class="section-card" style="margin-top:16px">
+            <div class="section-label">📧 Resend メール設定</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+              <a href="https://resend.com" target="_blank" style="color:var(--accent2)">resend.com</a> で無料アカウントを作成してAPIキーを取得してください（月3,000通まで無料）
+            </div>
+            <div class="form-grid">
+              <div class="form-group form-full"><label class="form-label">Resend API Key</label><input class="form-control" id="co-resend-key" type="password" placeholder="re_xxxxxxxxxxxx"></div>
+              <div class="form-group form-full"><label class="form-label">送信元メールアドレス（Resendで認証済みのドメイン）</label><input class="form-control" id="co-from-email" placeholder="noreply@yourdomain.com"></div>
+            </div>
+            <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="testEmailSend()">テストメール送信</button>
+          </div>
+          <div style="margin-top:20px;display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="saveCompany()">設定を保存する</button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ===== MODAL: 案件 ===== -->
+<div class="overlay" id="projectModal">
+  <div class="modal" style="max-width:800px">
+    <div class="modal-header">
+      <span class="modal-title" id="projectModalTitle">新規案件登録</span>
+      <button class="modal-close" onclick="closeModal('projectModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('project','info')">案件情報</div>
+        <div class="tab" onclick="switchTab('project','estimate')">見積・請求</div>
+        <div class="tab" onclick="switchTab('project','memo')">メモ</div>
+      </div>
+      <div class="tab-panel active" id="project-tab-info">
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">案件コード</label><input class="form-control" id="p-code" readonly></div>
+          <div class="form-group"><label class="form-label">ステータス</label>
+            <select class="form-control" id="p-status">
+              <option value="ordered">受注</option><option value="wip">作業中</option>
+              <option value="delivered">納品済</option><option value="invoiced">請求済</option>
+              <option value="paid">領収済</option>
+            </select>
+          </div>
+          <div class="form-group form-full"><label class="form-label">案件名 *</label><input class="form-control" id="p-name" placeholder="コーポレートサイトリニューアル"></div>
+          <div class="form-group"><label class="form-label">取引先 *</label><select class="form-control" id="p-client"></select></div>
+          <div class="form-group"><label class="form-label">担当者</label><input class="form-control" id="p-manager" placeholder="山田 太郎"></div>
+          <div class="form-group"><label class="form-label">受注日</label><input class="form-control" type="date" id="p-order-date"></div>
+          <div class="form-group"><label class="form-label">納期</label><input class="form-control" type="date" id="p-due-date"></div>
+          <div class="form-group form-full"><label class="form-label">案件概要</label><textarea class="form-control" id="p-desc" placeholder="案件の概要を入力..."></textarea></div>
+        </div>
+        <div class="divider"></div>
+        <div style="margin-bottom:8px;font-size:12px;color:var(--muted);font-weight:600">ステータス変更</div>
+        <div class="status-flow">
+          <div class="status-step" data-s="ordered" onclick="setStatus('ordered')">受注</div>
+          <div class="status-step" data-s="wip" onclick="setStatus('wip')">作業中</div>
+          <div class="status-step" data-s="delivered" onclick="setStatus('delivered')">納品済</div>
+          <div class="status-step" data-s="invoiced" onclick="setStatus('invoiced')">請求済</div>
+          <div class="status-step" data-s="paid" onclick="setStatus('paid')">領収済</div>
+        </div>
+      </div>
+      <div class="tab-panel" id="project-tab-estimate">
+        <div class="form-grid" style="margin-bottom:16px">
+          <div class="form-group"><label class="form-label">見積書番号</label><input class="form-control" id="p-est-no" readonly></div>
+          <div class="form-group"><label class="form-label">請求書番号</label><input class="form-control" id="p-inv-no" readonly></div>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;letter-spacing:0.05em;text-transform:uppercase">明細</div>
+        <table class="line-table">
+          <thead><tr><th style="width:42%">品目</th><th style="width:15%">数量</th><th style="width:25%">単価</th><th style="width:15%;text-align:right">金額</th><th style="width:30px"></th></tr></thead>
+          <tbody id="lineItems"></tbody>
+        </table>
+        <button class="add-line-btn" onclick="addLineItem()">＋ 明細を追加</button>
+        <div class="subtotal-area">
+          <div class="subtotal-row"><span class="lbl">小計</span><span class="val" id="sub-subtotal">¥0</span></div>
+          <div class="subtotal-row"><span class="lbl" id="sub-tax-label">消費税（10%）</span><span class="val" id="sub-tax">¥0</span></div>
+          <div class="subtotal-row grand"><span class="lbl">合計</span><span class="val" id="sub-total">¥0</span></div>
+        </div>
+      </div>
+      <div class="tab-panel" id="project-tab-memo">
+        <div class="form-group">
+          <label class="form-label">社内メモ</label>
+          <textarea class="form-control" id="p-memo" style="min-height:200px" placeholder="社内向けメモ..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="deleteProjectBtn" onclick="deleteProject()" style="margin-right:auto;color:var(--accent);border-color:var(--accent);display:none">🗑 削除</button>
+      <button class="btn btn-outline" onclick="closeModal('projectModal')">キャンセル</button>
+      <button class="btn btn-outline" onclick="openInvoicePreview('estimate')">📄 見積書</button>
+      <button class="btn btn-outline" onclick="openInvoicePreview('invoice')">🧾 請求書</button>
+      <button class="btn btn-primary" id="saveProjectBtn" onclick="saveProject()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: 見積書/請求書 ===== -->
+<div class="overlay" id="invoiceModal">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <span class="modal-title" id="invoiceModalTitle">見積書プレビュー</span>
+      <button class="modal-close" onclick="closeModal('invoiceModal')">✕</button>
+    </div>
+    <div class="modal-body" id="invoicePreviewContent"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('invoiceModal')">閉じる</button>
+      <button class="btn btn-outline" id="emailInvoiceBtn" onclick="sendByEmail()">📧 メールで送付</button>
+      <button class="btn btn-primary" onclick="downloadPDF()">📥 PDFダウンロード</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: メール送付 ===== -->
+<div class="overlay" id="emailModal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <span class="modal-title">メールで送付</span>
+      <button class="modal-close" onclick="closeModal('emailModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="emailConfigWarning" style="display:none;background:#fff8e1;border:1px solid #f0c040;border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:13px">
+        ⚠️ Resend APIキーが未設定です。<span style="color:var(--accent2);cursor:pointer;text-decoration:underline" onclick="closeModal('emailModal');showView('company')">自社情報設定</span>から設定してください。
+      </div>
+      <div class="form-grid">
+        <div class="form-group form-full"><label class="form-label">宛先 *</label><input class="form-control" id="mail-to" type="email" placeholder="client@example.com"></div>
+        <div class="form-group form-full"><label class="form-label">CC</label><input class="form-control" id="mail-cc" placeholder=""></div>
+        <div class="form-group form-full"><label class="form-label">件名</label><input class="form-control" id="mail-subject"></div>
+        <div class="form-group form-full"><label class="form-label">本文（編集可）</label>
+          <textarea class="form-control" id="mail-body" style="min-height:240px;line-height:1.9"></textarea>
+        </div>
+        <div class="form-group form-full" style="flex-direction:row;align-items:center;gap:8px">
+          <input type="checkbox" id="mail-include-link" checked>
+          <label for="mail-include-link" style="font-size:13px;cursor:pointer">見積書の受注リンクを本文に含める</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div id="emailSendStatus" style="margin-right:auto;font-size:13px;color:var(--muted)"></div>
+      <button class="btn btn-outline" onclick="closeModal('emailModal')">キャンセル</button>
+      <button class="btn btn-primary" id="sendEmailBtn" onclick="executeSendEmail()">📧 送信する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: 取引先 ===== -->
+<div class="overlay" id="clientModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <span class="modal-title" id="clientModalTitle">取引先登録</span>
+      <button class="modal-close" onclick="closeModal('clientModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group form-full"><label class="form-label">会社名 *</label><input class="form-control" id="cl-name" placeholder="株式会社サンプル"></div>
+        <div class="form-group"><label class="form-label">担当者名</label><input class="form-control" id="cl-contact" placeholder="鈴木 一郎"></div>
+        <div class="form-group"><label class="form-label">メールアドレス</label><input class="form-control" id="cl-email" type="email"></div>
+        <div class="form-group"><label class="form-label">電話番号</label><input class="form-control" id="cl-tel"></div>
+        <div class="form-group"><label class="form-label">郵便番号</label><input class="form-control" id="cl-zip"></div>
+        <div class="form-group form-full"><label class="form-label">住所</label><input class="form-control" id="cl-addr"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="deleteClientBtn" onclick="deleteClient()" style="margin-right:auto;color:var(--accent);border-color:var(--accent);display:none">🗑 削除</button>
+      <button class="btn btn-outline" onclick="closeModal('clientModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveClient()">保存する</button>
+    </div>
+  </div>
+</div>
+
+  <!-- DOMAIN MODAL -->
+  <div class="modal-overlay" id="domainModal" onclick="if(event.target===this)closeModal('domainModal')">
+    <div class="modal" style="max-width:500px">
+      <div class="modal-header">
+        <div class="modal-title" id="domainModalTitle">ドメイン追加</div>
+        <button class="modal-close" onclick="closeModal('domainModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group form-full">
+            <label class="form-label">ドメイン名 <span style="color:var(--accent2)">*</span></label>
+            <input class="form-control" id="dm-name" placeholder="example.com">
+          </div>
+          <div class="form-group form-full">
+            <label class="form-label">顧客名</label>
+            <select class="form-control" id="dm-client"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">更新月</label>
+            <select class="form-control" id="dm-renewal">
+              <option value="">未設定</option>
+              <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+              <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+              <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+              <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">請求月</label>
+            <select class="form-control" id="dm-billing">
+              <option value="">未設定</option>
+              <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+              <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+              <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+              <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+            </select>
+          </div>
+          <div class="form-group form-full">
+            <label class="form-label">レジストラ</label>
+            <input class="form-control" id="dm-registrar" placeholder="お名前.com、ムームードメイン など">
+          </div>
+          <div class="form-group form-full">
+            <label class="form-label">メモ</label>
+            <textarea class="form-control" id="dm-memo" rows="2" placeholder="備考など"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="deleteDomainBtn" onclick="deleteDomain()" style="margin-right:auto;color:var(--accent);border-color:var(--accent);display:none">🗑 削除</button>
+        <button class="btn btn-outline" onclick="closeModal('domainModal')">キャンセル</button>
+        <button class="btn btn-primary" onclick="saveDomain()">保存する</button>
+      </div>
+    </div>
+  </div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Supabase CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+/* Auto-generated — Web制作 案件台帳 */
+window.ENV = {
+  SUPABASE_URL:      'https://ehovgxyqlongollwyrml.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVob3ZneHlxbG9uZ29sbHd5cm1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NzcyMDgsImV4cCI6MjA4ODI1MzIwOH0.rdkzvNrsO8PkKDuMJNZwqY0pQDnabfVcmJnDhiv1wfc',
+  RESEND_API_KEY:    're_2uUwkqYF_QELAZsUopJCY2KC3h2Ngw75J',
+  RESEND_FROM_EMAIL: 'estimate@nfz33.com',
+};
+
+</script>
+<script>
+/* ============================================================
+   config.js — 設定管理
+   優先順位: window.ENV（Netlify環境変数） > localStorage
+   ============================================================ */
+
+const CONFIG_KEY = 'webstudio_company';
+
+const DEFAULT_COMPANY = {
+  name: '', zip: '', addr: '', tel: '', email: '',
+  bank: '', account: '', holder: '',
+  taxRate: 10, dueDays: 30,
+};
+
+function loadCompany() {
+  try {
+    const saved = localStorage.getItem(CONFIG_KEY);
+    if (saved) return { ...DEFAULT_COMPANY, ...JSON.parse(saved) };
+  } catch (e) { console.warn('自社情報読み込みエラー:', e); }
+  return { ...DEFAULT_COMPANY };
+}
+
+function saveCompanyToStorage(data) {
+  try { localStorage.setItem(CONFIG_KEY, JSON.stringify(data)); }
+  catch (e) { console.error('自社情報保存エラー:', e); }
+}
+
+function getEnv() {
+  const env = window.ENV || {};
+  return {
+    supabaseUrl:     env.SUPABASE_URL      || '',
+    supabaseAnonKey: env.SUPABASE_ANON_KEY || '',
+    resendApiKey:    env.RESEND_API_KEY    || '',
+    resendFromEmail: env.RESEND_FROM_EMAIL || '',
+  };
+}
+
+window.CFG = { company: loadCompany(), ...getEnv() };
+
+function applyConfigToForm() {
+  const c = window.CFG.company;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+  set('co-name', c.name); set('co-zip', c.zip); set('co-addr', c.addr);
+  set('co-tel', c.tel); set('co-email', c.email); set('co-bank', c.bank);
+  set('co-account', c.account); set('co-holder', c.holder);
+  set('co-tax', c.taxRate); set('co-due', c.dueDays);
+}
+
+function saveCompany() {
+  const get = (id) => document.getElementById(id)?.value?.trim() || '';
+  const company = {
+    name: get('co-name'), zip: get('co-zip'), addr: get('co-addr'),
+    tel: get('co-tel'), email: get('co-email'), bank: get('co-bank'),
+    account: get('co-account'), holder: get('co-holder'),
+    taxRate: Number(get('co-tax')) || 10, dueDays: Number(get('co-due')) || 30,
+  };
+  window.CFG.company = company;
+  saveCompanyToStorage(company);
+  toast('自社情報を保存しました', '✅', 'success');
+}
+
+async function testSupabaseConnection() {
+  const { supabaseUrl, supabaseAnonKey } = window.CFG;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    toast('Supabase環境変数が未設定です（Netlify管理画面で設定）', '⚠️');
+    return;
+  }
+  try {
+    const client = supabase.createClient(supabaseUrl, supabaseAnonKey);
+    const { error } = await client.from('projects').select('id').limit(1);
+    if (error && error.code !== 'PGRST116') throw error;
+    toast('Supabase接続OK ✅', '✅', 'success');
+    updateDbStatus(true);
+  } catch (e) {
+    toast('接続失敗: ' + (e.message || e), '❌', 'error');
+    updateDbStatus(false);
+  }
+}
+
+async function testEmailSend() {
+  const to = window.CFG.company.email || prompt('テスト送信先メールアドレス:');
+  if (!to) return;
+  toast('テストメール送信中...', '📧');
+  const result = await sendEmail({
+    to, subject: '【テスト】メール送信設定確認',
+    html: '<h2>✅ メール設定OK</h2><p>案件台帳システムからのメール送信が正常に動作しています。</p>',
+    text: 'テスト送信。案件台帳システムのメール設定が正常に完了しました。',
+  });
+  if (result.success) toast('テストメール送信成功！', '✅', 'success');
+  else toast('送信失敗: ' + result.error, '❌', 'error');
+}
+
+</script>
+<script>
+/* ============================================================
+   db.js — Supabase CRUD 操作レイヤー
+   ============================================================
+
+   テーブル構成（Supabaseで作成するSQL）:
+
+   -- 取引先
+   CREATE TABLE clients (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     name TEXT NOT NULL,
+     contact TEXT,
+     email TEXT,
+     tel TEXT,
+     zip TEXT,
+     addr TEXT,
+     created_at TIMESTAMPTZ DEFAULT now()
+   );
+
+   -- 案件
+   CREATE TABLE projects (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     code TEXT UNIQUE NOT NULL,
+     name TEXT NOT NULL,
+     client_id UUID REFERENCES clients(id),
+     manager TEXT,
+     status TEXT DEFAULT 'ordered',
+     order_date DATE,
+     due_date DATE,
+     description TEXT,
+     memo TEXT,
+     est_no TEXT,
+     inv_no TEXT,
+     lines JSONB DEFAULT '[]',
+     order_route TEXT DEFAULT '手動登録',
+     ordered_at TIMESTAMPTZ,
+     is_new_order BOOLEAN DEFAULT false,
+     already_ordered BOOLEAN DEFAULT false,
+     created_at TIMESTAMPTZ DEFAULT now(),
+     updated_at TIMESTAMPTZ DEFAULT now()
+   );
+
+   -- RLS（Row Level Security）は開発中は無効化推奨
+   ALTER TABLE clients DISABLE ROW LEVEL SECURITY;
+   ALTER TABLE projects DISABLE ROW LEVEL SECURITY;
+   ============================================================ */
+
+let _supabase = null;
+let _isConnected = false;
+
+// メモリキャッシュ
+let _cache = {
+  projects: [],
+  clients: [],
+  domains: [],
+  lastFetch: null,
+};
+
+function initSupabase() {
+  const { url, anonKey } = window.CFG.supabase;
+  if (!url || !anonKey) {
+    console.warn('Supabase設定が未入力です。自社情報設定から設定してください。');
+    updateDbStatus(false, '未設定');
+    return false;
+  }
+  try {
+    _supabase = supabase.createClient(url, anonKey);
+    updateDbStatus(true, '接続済');
+    return true;
+  } catch (e) {
+    console.error('Supabase初期化エラー:', e);
+    updateDbStatus(false, 'エラー');
+    return false;
+  }
+}
+
+function updateDbStatus(connected, label) {
+  _isConnected = connected;
+  const dot = document.getElementById('dbDot');
+  const text = document.getElementById('dbStatusText');
+  if (dot) dot.style.background = connected ? '#2e8b57' : '#888';
+  if (text) text.textContent = label || (connected ? '接続済' : '未接続');
+}
+
+function isDbReady() {
+  return _supabase && _isConnected;
+}
+
+/* ── PROJECTS ── */
+
+async function dbFetchProjects() {
+  if (!isDbReady()) return _cache.projects;
+  try {
+    const { data, error } = await _supabase
+      .from('projects')
+      .select('*, clients(id, name, email, contact, tel, zip, addr)')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    _cache.projects = (data || []).map(normalizeProject);
+    _cache.lastFetch = Date.now();
+    return _cache.projects;
+  } catch (e) {
+    console.error('プロジェクト取得エラー:', e);
+    toast('データ取得エラー: ' + e.message, '❌', 'error');
+    return _cache.projects;
+  }
+}
+
+async function dbSaveProject(projectData) {
+  const payload = denormalizeProject(projectData);
+  if (!isDbReady()) {
+    // ローカルキャッシュのみ更新
+    if (payload.id) {
+      const idx = _cache.projects.findIndex(p => p.id === payload.id);
+      if (idx >= 0) _cache.projects[idx] = { ..._cache.projects[idx], ...projectData };
+    } else {
+      const newId = 'local-' + Date.now();
+      _cache.projects.unshift({ ...projectData, id: newId });
+    }
+    toast('⚠️ オフラインモード：DBに保存されていません', '⚠️');
+    return { id: payload.id };
+  }
+
+  try {
+    if (payload.id && !payload.id.startsWith('local-')) {
+      // UPDATE
+      const { id, created_at, clients, ...updateData } = payload;
+      updateData.updated_at = new Date().toISOString();
+      const { data, error } = await _supabase
+        .from('projects')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return normalizeProject(data);
+    } else {
+      // INSERT
+      const { id, created_at, clients, ...insertData } = payload;
+      const { data, error } = await _supabase
+        .from('projects')
+        .insert(insertData)
+        .select()
+        .single();
+      if (error) throw error;
+      return normalizeProject(data);
+    }
+  } catch (e) {
+    console.error('プロジェクト保存エラー:', e);
+    toast('保存エラー: ' + e.message, '❌', 'error');
+    throw e;
+  }
+}
+
+async function dbDeleteProject(id) {
+  if (!isDbReady()) {
+    _cache.projects = _cache.projects.filter(p => p.id !== id);
+    return true;
+  }
+  try {
+    const { error } = await _supabase.from('projects').delete().eq('id', id);
+    if (error) throw error;
+    _cache.projects = _cache.projects.filter(p => p.id !== id);
+    return true;
+  } catch (e) {
+    console.error('削除エラー:', e);
+    toast('削除エラー: ' + e.message, '❌', 'error');
+    throw e;
+  }
+}
+
+async function dbUpdateProjectStatus(id, status, extra = {}) {
+  const payload = { status, updated_at: new Date().toISOString(), ...extra };
+  if (!isDbReady()) {
+    const p = _cache.projects.find(x => x.id === id);
+    if (p) Object.assign(p, { status, ...extra });
+    return true;
+  }
+  try {
+    const { error } = await _supabase.from('projects').update(payload).eq('id', id);
+    if (error) throw error;
+    const p = _cache.projects.find(x => x.id === id);
+    if (p) Object.assign(p, { status, ...extra });
+    return true;
+  } catch (e) {
+    console.error('ステータス更新エラー:', e);
+    toast('更新エラー: ' + e.message, '❌', 'error');
+    throw e;
+  }
+}
+
+/* ── CLIENTS ── */
+
+async function dbFetchClients() {
+  if (!isDbReady()) return _cache.clients;
+  try {
+    const { data, error } = await _supabase
+      .from('clients')
+      .select('*')
+      .order('name');
+    if (error) throw error;
+    _cache.clients = data || [];
+    return _cache.clients;
+  } catch (e) {
+    console.error('取引先取得エラー:', e);
+    return _cache.clients;
+  }
+}
+
+async function dbSaveClient(clientData) {
+  if (!isDbReady()) {
+    if (clientData.id) {
+      const idx = _cache.clients.findIndex(c => c.id === clientData.id);
+      if (idx >= 0) _cache.clients[idx] = clientData;
+    } else {
+      _cache.clients.push({ ...clientData, id: 'local-' + Date.now() });
+    }
+    toast('⚠️ オフラインモード', '⚠️');
+    return clientData;
+  }
+  try {
+    if (clientData.id && !clientData.id.startsWith('local-')) {
+      const { id, created_at, ...updateData } = clientData;
+      const { data, error } = await _supabase.from('clients').update(updateData).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    } else {
+      const { id, created_at, ...insertData } = clientData;
+      const { data, error } = await _supabase.from('clients').insert(insertData).select().single();
+      if (error) throw error;
+      return data;
+    }
+  } catch (e) {
+    console.error('取引先保存エラー:', e);
+    toast('保存エラー: ' + e.message, '❌', 'error');
+    throw e;
+  }
+}
+
+async function dbDeleteClient(id) {
+  if (!isDbReady()) {
+    _cache.clients = _cache.clients.filter(c => c.id !== id);
+    return true;
+  }
+  try {
+    const { error } = await _supabase.from('clients').delete().eq('id', id);
+    if (error) throw error;
+    _cache.clients = _cache.clients.filter(c => c.id !== id);
+    return true;
+  } catch (e) {
+    console.error('取引先削除エラー:', e);
+    toast('削除エラー: ' + e.message, '❌', 'error');
+    throw e;
+  }
+}
+
+/* ── COUNTER ── */
+
+async function dbNextCode() {
+  const year = new Date().getFullYear();
+  const prefix = `WEB-${year}-`;
+  if (!isDbReady()) {
+    const count = _cache.projects.filter(p => p.code && p.code.startsWith(prefix)).length;
+    return `${prefix}${String(count + 1).padStart(3, '0')}`;
+  }
+  try {
+    const { data } = await _supabase
+      .from('projects')
+      .select('code')
+      .like('code', `${prefix}%`)
+      .order('code', { ascending: false })
+      .limit(1);
+    const last = data?.[0]?.code;
+    const lastNum = last ? parseInt(last.split('-')[2]) : 0;
+    return `${prefix}${String(lastNum + 1).padStart(3, '0')}`;
+  } catch (e) {
+    const count = _cache.projects.filter(p => p.code?.startsWith(prefix)).length;
+    return `${prefix}${String(count + 1).padStart(3, '0')}`;
+  }
+}
+
+async function dbNextDocNo(type) {
+  const year = new Date().getFullYear();
+  const prefix = type === 'estimate' ? `EST-${year}-` : `INV-${year}-`;
+  const field = type === 'estimate' ? 'est_no' : 'inv_no';
+  if (!isDbReady()) {
+    const count = _cache.projects.filter(p => p[type === 'estimate' ? 'estNo' : 'invNo']?.startsWith(prefix)).length;
+    return `${prefix}${String(count + 1).padStart(3, '0')}`;
+  }
+  try {
+    const { data } = await _supabase
+      .from('projects')
+      .select(field)
+      .like(field, `${prefix}%`)
+      .order(field, { ascending: false })
+      .limit(1);
+    const last = data?.[0]?.[field];
+    const lastNum = last ? parseInt(last.split('-')[2]) : 0;
+    return `${prefix}${String(lastNum + 1).padStart(3, '0')}`;
+  } catch (e) {
+    const key = type === 'estimate' ? 'estNo' : 'invNo';
+    const count = _cache.projects.filter(p => p[key]?.startsWith(prefix)).length;
+    return `${prefix}${String(count + 1).padStart(3, '0')}`;
+  }
+}
+
+/* ── NORMALIZERS（DB列名 ↔ JS camelCase変換） ── */
+
+function normalizeProject(row) {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    clientId: row.client_id,
+    // JOIN結果があればキャッシュに同期
+    _client: row.clients || null,
+    manager: row.manager,
+    status: row.status,
+    orderDate: row.order_date,
+    dueDate: row.due_date,
+    desc: row.description,
+    memo: row.memo,
+    estNo: row.est_no,
+    invNo: row.inv_no,
+    lines: row.lines || [],
+    orderRoute: row.order_route || '手動登録',
+    orderedAt: row.ordered_at,
+    isNewOrder: row.is_new_order || false,
+    alreadyOrdered: row.already_ordered || false,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function denormalizeProject(p) {
+  return {
+    id: p.id,
+    code: p.code,
+    name: p.name,
+    client_id: p.clientId,
+    manager: p.manager || null,
+    status: p.status,
+    order_date: p.orderDate || null,
+    due_date: p.dueDate || null,
+    description: p.desc || null,
+    memo: p.memo || null,
+    est_no: p.estNo || null,
+    inv_no: p.invNo || null,
+    lines: p.lines || [],
+    order_route: p.orderRoute || '手動登録',
+    ordered_at: p.orderedAt || null,
+    is_new_order: p.isNewOrder || false,
+    already_ordered: p.alreadyOrdered || false,
+  };
+}
+
+function getClientById(id) {
+  // プロジェクトのJOIN結果を優先
+  const fromProject = _cache.projects.find(p => p.clientId === id)?._client;
+  if (fromProject) return fromProject;
+  return _cache.clients.find(c => c.id === id) || null;
+}
+
+// Supabase Realtime（リアルタイム受注通知）
+function subscribeToOrders(onNewOrder) {
+  if (!isDbReady()) return;
+  _supabase
+    .channel('project-orders')
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'projects',
+      filter: 'is_new_order=eq.true',
+    }, (payload) => {
+      const project = normalizeProject(payload.new);
+      onNewOrder(project);
+    })
+    .subscribe();
+}
+
+/* ── DOMAINS ── */
+
+async function dbFetchDomains() {
+  if (!isDbReady()) return _cache.domains || [];
+  try {
+    const { data, error } = await _supabase
+      .from('domains')
+      .select('*')
+      .order('domain_name');
+    if (error) throw error;
+    _cache.domains = data || [];
+    return _cache.domains;
+  } catch (e) {
+    console.error('ドメイン取得エラー:', e);
+    toast('ドメイン取得エラー: ' + e.message, '❌', 'error');
+    return _cache.domains || [];
+  }
+}
+
+async function dbSaveDomain(domainData) {
+  if (!isDbReady()) {
+    if (!_cache.domains) _cache.domains = [];
+    if (domainData.id) {
+      const idx = _cache.domains.findIndex(d => d.id === domainData.id);
+      if (idx >= 0) _cache.domains[idx] = domainData;
+    } else {
+      _cache.domains.push({ ...domainData, id: 'local-' + Date.now() });
+    }
+    toast('⚠️ オフラインモード', '⚠️');
+    return domainData;
+  }
+  try {
+    if (domainData.id && !domainData.id.startsWith('local-')) {
+      const { id, created_at, ...updateData } = domainData;
+      updateData.updated_at = new Date().toISOString();
+      const { data, error } = await _supabase.from('domains').update(updateData).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    } else {
+      const { id, created_at, ...insertData } = domainData;
+      const { data, error } = await _supabase.from('domains').insert(insertData).select().single();
+      if (error) throw error;
+      return data;
+    }
+  } catch (e) {
+    console.error('ドメイン保存エラー:', e);
+    toast('保存エラー: ' + e.message, '❌', 'error');
+    throw e;
+  }
+}
+
+async function dbDeleteDomain(id) {
+  if (!isDbReady()) {
+    _cache.domains = (_cache.domains || []).filter(d => d.id !== id);
+    return true;
+  }
+  try {
+    const { error } = await _supabase.from('domains').delete().eq('id', id);
+    if (error) throw error;
+    _cache.domains = (_cache.domains || []).filter(d => d.id !== id);
+    return true;
+  } catch (e) {
+    console.error('ドメイン削除エラー:', e);
+    toast('削除エラー: ' + e.message, '❌', 'error');
+    throw e;
+  }
+}
+
+</script>
+<script>
+/* ============================================================
+   invoice.js — 見積書 / 請求書 プレビュー & 印刷
+   ============================================================ */
+
+function calcSubtotal(lines) {
+  return (lines || []).reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const parts = String(d).split('-');
+  if (parts.length < 3) return d;
+  return `${parts[0]}/${parts[1]}/${parts[2]}`;
+}
+
+function fmtDatetime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function openInvoicePreviewById(projectId, type) {
+  const p = _cache.projects.find(x => x.id === projectId);
+  if (!p) return;
+  window._currentInvoiceData = { project: p, type };
+  renderInvoicePreview(p, type);
+  openModal('invoiceModal');
+}
+
+function openInvoicePreview(type) {
+  const lines = collectLines();
+  const pseudo = {
+    id: window._editingProjectId,
+    code: document.getElementById('p-code')?.value,
+    name: document.getElementById('p-name')?.value || '（未入力）',
+    clientId: document.getElementById('p-client')?.value,
+    manager: document.getElementById('p-manager')?.value,
+    orderDate: document.getElementById('p-order-date')?.value,
+    dueDate: document.getElementById('p-due-date')?.value,
+    estNo: document.getElementById('p-est-no')?.value,
+    invNo: document.getElementById('p-inv-no')?.value,
+    lines,
+    _client: getClientById(document.getElementById('p-client')?.value),
+  };
+  window._currentInvoiceData = { project: pseudo, type };
+  renderInvoicePreview(pseudo, type);
+  openModal('invoiceModal');
+}
+
+function renderInvoicePreview(p, type) {
+  const co = window.CFG.company;
+  const client = getClientById(p.clientId) || p._client || { name: '（取引先未設定）' };
+  const isEstimate = type === 'estimate';
+  const docTitle = isEstimate ? '見積書' : '請求書';
+  const docNo = isEstimate ? (p.estNo || '—') : (p.invNo || '—');
+
+  document.getElementById('invoiceModalTitle').textContent = docTitle + 'プレビュー';
+
+  const sub = calcSubtotal(p.lines);
+  const taxRate = Number(co.taxRate) || 10;
+  const tax = Math.round(sub * taxRate / 100);
+  const grand = sub + tax;
+
+  const today = new Date();
+  const dueDate = new Date(today.getTime() + (Number(co.dueDays) || 30) * 86400000);
+  const fmtD = (d) => `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+
+  const lineRows = (p.lines || []).filter(l => l.name || l.price).map(l => {
+    const total = (Number(l.qty) || 0) * (Number(l.price) || 0);
+    return `<tr>
+      <td>${l.name}</td>
+      <td style="text-align:center">${l.qty}</td>
+      <td style="text-align:right;font-family:'Space Mono',monospace">¥${Number(l.price).toLocaleString()}</td>
+      <td style="text-align:right;font-family:'Space Mono',monospace">¥${total.toLocaleString()}</td>
+    </tr>`;
+  }).join('');
+
+  const orderSection = isEstimate ? `
+    <div class="order-cta">
+      <p style="margin:0 0 4px;font-size:13px;color:#2e6b47;font-weight:600">上記の内容でご発注いただける場合</p>
+      <p style="margin:0 0 16px;font-size:12px;color:#5a8a6a">下のボタンをクリックしてください。担当者に自動で通知されます。</p>
+      <button class="order-cta-btn" onclick="clientOrder('${p.id || ''}','${p.estNo || docNo}')">
+        ✅ この見積内容で受注する
+      </button>
+      <p style="margin:12px 0 0;font-size:11px;color:#8aaa95">※ボタンを押すと担当者へ受注通知が送信されます</p>
+    </div>` : '';
+
+  document.getElementById('invoicePreviewContent').innerHTML = `
+    <div class="invoice-preview" id="printArea">
+      <div class="inv-header">
+        <div>
+          <div class="inv-company">${co.name || 'Web Studio'}</div>
+          <div class="inv-addr">
+            〒${co.zip || ''}<br>${co.addr || ''}<br>
+            TEL: ${co.tel || ''}<br>${co.email || ''}
+          </div>
+        </div>
+        <div class="inv-title-block">
+          <div class="inv-title">${docTitle}</div>
+          <div class="inv-number">No. ${docNo}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px">発行日：${fmtD(today)}</div>
+          ${!isEstimate ? `<div style="font-size:12px;color:var(--muted)">支払期限：${fmtD(dueDate)}</div>` : ''}
+        </div>
+      </div>
+
+      <div class="inv-to">
+        <div class="inv-to-label">宛先</div>
+        <div class="inv-to-name">${client.name} 御中</div>
+        ${client.contact ? `<div style="font-size:13px;color:var(--muted)">${client.contact} 様</div>` : ''}
+      </div>
+
+      <div style="margin-bottom:16px;padding:12px 16px;background:var(--paper);border-radius:4px;border-left:4px solid var(--ink)">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">件名</div>
+        <div style="font-size:14px;font-weight:600">${p.name}</div>
+      </div>
+
+      <table class="inv-items">
+        <thead>
+          <tr>
+            <th style="width:50%">品目</th>
+            <th style="width:10%;text-align:center">数量</th>
+            <th style="width:20%;text-align:right">単価</th>
+            <th style="width:20%;text-align:right">金額</th>
+          </tr>
+        </thead>
+        <tbody>${lineRows || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">明細を追加してください</td></tr>'}</tbody>
+      </table>
+
+      <div class="inv-total-block">
+        <div class="inv-row"><span class="ll">小計</span><span class="rr">¥${sub.toLocaleString()}</span></div>
+        <div class="inv-row"><span class="ll">消費税（${taxRate}%）</span><span class="rr">¥${tax.toLocaleString()}</span></div>
+        <div class="inv-row total"><span class="ll">合計</span><span class="rr">¥${grand.toLocaleString()}</span></div>
+      </div>
+
+      ${!isEstimate && co.bank ? `
+      <div class="inv-note">
+        <div style="font-weight:600;margin-bottom:8px;color:var(--ink)">お振込先</div>
+        <div>${co.bank}</div>
+        <div>${co.account || ''}</div>
+        <div>口座名義：${co.holder || ''}</div>
+      </div>` : ''}
+
+      ${orderSection}
+    </div>`;
+}
+
+function downloadPDF() {
+  toast('印刷ダイアログでPDF保存をお選びください', '📄');
+  setTimeout(() => window.print(), 300);
+}
+
+/* クライアント側の受注ボタン処理 */
+async function clientOrder(projectId, estNo) {
+  if (!projectId) { toast('案件IDが見つかりません', '⚠️'); return; }
+
+  const p = _cache.projects.find(x => x.id === projectId);
+  if (p?.alreadyOrdered) {
+    document.getElementById('invoicePreviewContent').innerHTML = `
+      <div style="text-align:center;padding:48px 20px">
+        <div style="font-size:48px;margin-bottom:16px">ℹ️</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px">すでに受注済みです</div>
+        <div style="font-size:14px;color:var(--muted)">このお見積はすでに受注確定済みです。<br>ご不明な点はお問い合わせください。</div>
+      </div>`;
+    return;
+  }
+
+  // 受注処理
+  try {
+    await dbUpdateProjectStatus(projectId, 'ordered', {
+      isNewOrder: true,
+      alreadyOrdered: true,
+      orderRoute: '見積書承認',
+      orderedAt: new Date().toISOString(),
+    });
+
+    // ローカルキャッシュ更新
+    if (p) {
+      p.status = 'ordered';
+      p.isNewOrder = true;
+      p.alreadyOrdered = true;
+      p.orderRoute = '見積書承認';
+      p.orderedAt = new Date().toISOString();
+    }
+
+    document.getElementById('invoicePreviewContent').innerHTML = `
+      <div style="text-align:center;padding:48px 20px">
+        <div style="font-size:64px;margin-bottom:16px">✅</div>
+        <div style="font-size:22px;font-weight:700;margin-bottom:8px;color:#2e8b57">受注を承りました！</div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:24px">ご発注ありがとうございます。<br>担当者より改めてご連絡いたします。</div>
+        <div style="background:var(--paper);border-radius:6px;padding:16px 28px;display:inline-block;text-align:left;border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">受注内容</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:4px">${p?.name || '—'}</div>
+          <div style="font-size:13px;color:var(--muted)">見積No. ${estNo}</div>
+          <div style="font-size:14px;font-family:'Space Mono',monospace;margin-top:10px">
+            合計 ¥${(calcSubtotal(p?.lines||[]) + Math.round(calcSubtotal(p?.lines||[]) * ((Number(window.CFG.company.taxRate)||10)/100))).toLocaleString()}（税込）
+          </div>
+        </div>
+      </div>`;
+
+    document.getElementById('invoiceModalTitle').textContent = '受注完了';
+
+    // 管理画面データ更新
+    renderTable();
+    updateKPI();
+    updateOrderBadge();
+
+    // 受注通知バナー
+    const banner = document.getElementById('orderNotifyBanner');
+    if (banner) {
+      banner.style.display = 'flex';
+      document.getElementById('orderNotifyTitle').textContent = `🎉 新しい受注「${p?.name}」`;
+      document.getElementById('orderNotifyDetail').textContent = `見積No. ${estNo} ／ ${fmtDatetime(p?.orderedAt)}`;
+    }
+
+    toast(`受注確定！「${p?.name}」`, '🎉', 'success');
+  } catch (e) {
+    toast('受注処理に失敗しました: ' + e.message, '❌', 'error');
+  }
+}
+
+/* URLパラメータ処理（メールリンク経由） */
+function handleUrlOrder() {
+  const params = new URLSearchParams(location.search);
+  const orderId = params.get('order');
+  if (!orderId) return;
+  history.replaceState({}, '', location.pathname);
+  setTimeout(() => {
+    const p = _cache.projects.find(x => x.id === orderId);
+    if (p) {
+      window._currentInvoiceData = { project: p, type: 'estimate' };
+      renderInvoicePreview(p, 'estimate');
+      openModal('invoiceModal');
+    }
+  }, 500);
+}
+
+</script>
+<script>
+/* ============================================================
+   email.js — Resend API によるメール送信
+   ============================================================
+   Resend は CORS対応のためブラウザから直接呼び出し可能です
+   https://resend.com/docs/api-reference/emails/send-email
+   ============================================================ */
+
+/**
+ * メール送信
+ * @param {Object} opts
+ * @param {string} opts.to - 宛先メールアドレス
+ * @param {string} [opts.cc] - CC
+ * @param {string} opts.subject - 件名
+ * @param {string} opts.html - HTMLメール本文
+ * @param {string} opts.text - テキスト本文（フォールバック）
+ * @returns {Promise<{success: boolean, id?: string, error?: string}>}
+ */
+async function sendEmail({ to, cc, subject, html, text }) {
+  const { apiKey, fromEmail } = window.CFG.resend;
+
+  if (!apiKey) {
+    return { success: false, error: 'Resend APIキーが設定されていません' };
+  }
+  if (!fromEmail) {
+    return { success: false, error: '送信元メールアドレスが設定されていません' };
+  }
+
+  const payload = {
+    from: `${window.CFG.company.name || 'Web Studio'} <${fromEmail}>`,
+    to: [to],
+    subject,
+    html,
+    text: text || html.replace(/<[^>]+>/g, ''),
+  };
+  if (cc) payload.cc = [cc];
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || data.name || `HTTP ${res.status}`);
+    }
+    return { success: true, id: data.id };
+  } catch (e) {
+    console.error('メール送信エラー:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * 見積書メール本文を生成
+ */
+function buildEstimateEmailHtml(project, client, company, orderUrl) {
+  const co = company;
+  const sub = calcSubtotal(project.lines);
+  const tax = Math.round(sub * (Number(co.taxRate) || 10) / 100);
+  const grand = sub + tax;
+
+  const lineRows = (project.lines || []).map(l => {
+    const total = (Number(l.qty) || 0) * (Number(l.price) || 0);
+    return `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px">${l.name}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px;text-align:center">${l.qty}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px;text-align:right;font-family:monospace">¥${Number(l.price).toLocaleString()}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px;text-align:right;font-family:monospace">¥${total.toLocaleString()}</td>
+      </tr>`;
+  }).join('');
+
+  const orderSection = orderUrl ? `
+    <div style="margin-top:32px;padding:24px;background:#f0faf4;border:2px solid #2e8b57;border-radius:8px;text-align:center">
+      <p style="margin:0 0 6px;font-size:14px;color:#2e6b47;font-weight:600">上記の内容でご発注いただける場合</p>
+      <p style="margin:0 0 16px;font-size:13px;color:#5a8a6a">下記のボタンをクリックしてください。担当者に自動で通知されます。</p>
+      <a href="${orderUrl}" style="display:inline-block;background:#2e8b57;color:#fff;text-decoration:none;padding:14px 40px;font-size:15px;font-weight:700;border-radius:6px;letter-spacing:0.03em">
+        ✅ この見積内容で受注する
+      </a>
+      <p style="margin:12px 0 0;font-size:11px;color:#8aaa95">※ボタンを押すと担当者へ受注通知が送信されます</p>
+    </div>` : '';
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f3ee;font-family:'Helvetica Neue',Arial,'Hiragino Sans',sans-serif">
+  <div style="max-width:680px;margin:32px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
+    
+    <!-- ヘッダー -->
+    <div style="background:#0f0f14;padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-size:11px;color:#d4451a;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;font-family:monospace">Web Studio</div>
+        <div style="font-size:16px;font-weight:700;color:#fff">${co.name || 'Web Studio'}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:22px;font-weight:900;color:#d4451a;letter-spacing:0.06em">見積書</div>
+        <div style="font-size:12px;color:#666;font-family:monospace">No. ${project.estNo || '—'}</div>
+      </div>
+    </div>
+
+    <div style="padding:32px">
+      <!-- 宛先 -->
+      <div style="margin-bottom:24px">
+        <div style="font-size:10px;color:#8a8680;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">送付先</div>
+        <div style="font-size:18px;font-weight:700">${client.name || ''} 御中</div>
+        ${client.contact ? `<div style="font-size:13px;color:#8a8680;margin-top:2px">${client.contact} 様</div>` : ''}
+      </div>
+
+      <!-- 件名 -->
+      <div style="margin-bottom:24px;padding:14px 18px;background:#f5f3ee;border-radius:4px;border-left:4px solid #0f0f14">
+        <div style="font-size:11px;color:#8a8680;margin-bottom:4px">件名</div>
+        <div style="font-size:15px;font-weight:600">${project.name}</div>
+      </div>
+
+      <!-- 明細表 -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+        <thead>
+          <tr style="background:#0f0f14">
+            <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:#fff;letter-spacing:0.05em">品目</th>
+            <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:600;color:#fff;width:60px">数量</th>
+            <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:600;color:#fff;width:120px">単価</th>
+            <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:600;color:#fff;width:120px">金額</th>
+          </tr>
+        </thead>
+        <tbody>${lineRows}</tbody>
+      </table>
+
+      <!-- 合計 -->
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;border-top:2px solid #0f0f14;padding-top:12px">
+        <div style="display:flex;gap:20px;font-size:13px">
+          <span style="color:#8a8680;min-width:90px;text-align:right">小計</span>
+          <span style="font-family:monospace;min-width:110px;text-align:right">¥${sub.toLocaleString()}</span>
+        </div>
+        <div style="display:flex;gap:20px;font-size:13px">
+          <span style="color:#8a8680;min-width:90px;text-align:right">消費税（${co.taxRate || 10}%）</span>
+          <span style="font-family:monospace;min-width:110px;text-align:right">¥${tax.toLocaleString()}</span>
+        </div>
+        <div style="display:flex;gap:20px;font-size:17px;font-weight:700;border-top:1px solid #d8d4cc;padding-top:8px;margin-top:4px">
+          <span style="min-width:90px;text-align:right">合計</span>
+          <span style="font-family:monospace;min-width:110px;text-align:right">¥${grand.toLocaleString()}</span>
+        </div>
+      </div>
+
+      <!-- 受注ボタン -->
+      ${orderSection}
+    </div>
+
+    <!-- フッター -->
+    <div style="background:#f5f3ee;padding:20px 32px;border-top:1px solid #d8d4cc;font-size:12px;color:#8a8680;line-height:1.8">
+      <div style="font-weight:600;color:#0f0f14;margin-bottom:6px">${co.name || ''}</div>
+      <div>〒${co.zip || ''} ${co.addr || ''}</div>
+      <div>TEL: ${co.tel || ''} ／ ${co.email || ''}</div>
+      ${co.bank ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #d8d4cc">振込先：${co.bank} ${co.account || ''} （${co.holder || ''}）</div>` : ''}
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * 請求書メールHTML生成
+ */
+function buildInvoiceEmailHtml(project, client, company) {
+  const co = company;
+  const sub = calcSubtotal(project.lines);
+  const taxRate = Number(co.taxRate) || 10;
+  const tax = Math.round(sub * taxRate / 100);
+  const grand = sub + tax;
+  const today = new Date();
+  const dueDate = new Date(today.getTime() + (Number(co.dueDays) || 30) * 86400000);
+  const fmtD = (d) => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+
+  const lineRows = (project.lines || []).map(l => {
+    const total = (Number(l.qty) || 0) * (Number(l.price) || 0);
+    return `<tr>
+      <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px">${l.name}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px;text-align:center">${l.qty}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px;text-align:right;font-family:monospace">¥${Number(l.price).toLocaleString()}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #e8e4de;font-size:13px;text-align:right;font-family:monospace">¥${total.toLocaleString()}</td>
+    </tr>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f3ee;font-family:'Helvetica Neue',Arial,'Hiragino Sans',sans-serif">
+  <div style="max-width:680px;margin:32px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
+    <div style="background:#0f0f14;padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-size:11px;color:#d4451a;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;font-family:monospace">Web Studio</div>
+        <div style="font-size:16px;font-weight:700;color:#fff">${co.name || ''}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:22px;font-weight:900;color:#d4451a;letter-spacing:0.06em">請求書</div>
+        <div style="font-size:12px;color:#666;font-family:monospace">No. ${project.invNo || '—'}</div>
+        <div style="font-size:11px;color:#666;margin-top:4px">発行日：${fmtD(today)}</div>
+        <div style="font-size:11px;color:#666">支払期限：${fmtD(dueDate)}</div>
+      </div>
+    </div>
+    <div style="padding:32px">
+      <div style="margin-bottom:24px">
+        <div style="font-size:10px;color:#8a8680;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">請求先</div>
+        <div style="font-size:18px;font-weight:700">${client.name || ''} 御中</div>
+        ${client.contact ? `<div style="font-size:13px;color:#8a8680;margin-top:2px">${client.contact} 様</div>` : ''}
+      </div>
+      <div style="margin-bottom:24px;padding:14px 18px;background:#f5f3ee;border-radius:4px;border-left:4px solid #0f0f14">
+        <div style="font-size:11px;color:#8a8680;margin-bottom:4px">件名</div>
+        <div style="font-size:15px;font-weight:600">${project.name}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+        <thead>
+          <tr style="background:#0f0f14">
+            <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:#fff">品目</th>
+            <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:600;color:#fff;width:60px">数量</th>
+            <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:600;color:#fff;width:120px">単価</th>
+            <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:600;color:#fff;width:120px">金額</th>
+          </tr>
+        </thead>
+        <tbody>${lineRows}</tbody>
+      </table>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;border-top:2px solid #0f0f14;padding-top:12px">
+        <div style="display:flex;gap:20px;font-size:13px"><span style="color:#8a8680;min-width:100px;text-align:right">小計</span><span style="font-family:monospace;min-width:110px;text-align:right">¥${sub.toLocaleString()}</span></div>
+        <div style="display:flex;gap:20px;font-size:13px"><span style="color:#8a8680;min-width:100px;text-align:right">消費税（${taxRate}%）</span><span style="font-family:monospace;min-width:110px;text-align:right">¥${tax.toLocaleString()}</span></div>
+        <div style="display:flex;gap:20px;font-size:17px;font-weight:700;border-top:1px solid #d8d4cc;padding-top:8px;margin-top:4px">
+          <span style="min-width:100px;text-align:right">合計</span>
+          <span style="font-family:monospace;min-width:110px;text-align:right">¥${grand.toLocaleString()}</span>
+        </div>
+      </div>
+      <div style="margin-top:24px;padding-top:16px;border-top:1px solid #d8d4cc;font-size:12px;color:#8a8680;line-height:1.8">
+        <div style="font-weight:600;color:#0f0f14;margin-bottom:4px">お振込先</div>
+        <div>${co.bank || ''}</div>
+        <div>${co.account || ''}</div>
+        <div>口座名義：${co.holder || ''}</div>
+      </div>
+    </div>
+    <div style="background:#f5f3ee;padding:20px 32px;border-top:1px solid #d8d4cc;font-size:12px;color:#8a8680;line-height:1.8">
+      <div style="font-weight:600;color:#0f0f14;margin-bottom:4px">${co.name || ''}</div>
+      <div>〒${co.zip || ''} ${co.addr || ''}</div>
+      <div>TEL: ${co.tel || ''} ／ ${co.email || ''}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/* ── メール送付UI関数 ── */
+
+function sendByEmail() {
+  const { project: p, type } = window._currentInvoiceData || {};
+  if (!p) return;
+  const co = window.CFG.company;
+  const client = getClientById(p.clientId) || p._client || {};
+  const isEstimate = type === 'estimate';
+
+  // Resend未設定の警告
+  const warn = document.getElementById('emailConfigWarning');
+  if (warn) warn.style.display = window.CFG.resend.apiKey ? 'none' : 'block';
+
+  document.getElementById('mail-to').value = client.email || '';
+  document.getElementById('mail-cc').value = co.email || '';
+  document.getElementById('mail-subject').value = `【${isEstimate ? '見積書' : '請求書'}送付】${p.name}`;
+
+  const sub = calcSubtotal(p.lines);
+  const grand = sub + Math.round(sub * (Number(co.taxRate) || 10) / 100);
+
+  document.getElementById('mail-body').value =
+`${client.name || ''} 御中
+${client.contact ? client.contact + ' 様\n' : ''}
+いつもお世話になっております。
+${co.name} でございます。
+
+このたびは、${p.name} のご依頼をいただき、誠にありがとうございます。
+
+下記のとおり${isEstimate ? '見積書' : '請求書'}をお送りいたします。
+ご確認のほど、よろしくお願いいたします。
+
+━━━━━━━━━━━━━━━━━━━━━━━
+　案件名　：${p.name}
+　合計金額：¥${grand.toLocaleString()}（税込）
+━━━━━━━━━━━━━━━━━━━━━━━
+
+ご不明な点がございましたら、お気軽にご連絡ください。
+今後ともよろしくお願いいたします。
+
+────────────────────────
+${co.name}
+TEL: ${co.tel || ''}
+MAIL: ${co.email || ''}
+────────────────────────`;
+
+  closeModal('invoiceModal');
+  openModal('emailModal');
+}
+
+async function executeSendEmail() {
+  const to = document.getElementById('mail-to')?.value?.trim();
+  const cc = document.getElementById('mail-cc')?.value?.trim();
+  const subject = document.getElementById('mail-subject')?.value?.trim();
+  const bodyText = document.getElementById('mail-body')?.value?.trim();
+  const includeLink = document.getElementById('mail-include-link')?.checked;
+
+  if (!to) { toast('宛先を入力してください', '⚠️'); return; }
+  if (!subject) { toast('件名を入力してください', '⚠️'); return; }
+
+  const { project: p, type } = window._currentInvoiceData || {};
+  const co = window.CFG.company;
+  const client = p ? (getClientById(p.clientId) || p._client || {}) : {};
+  const isEstimate = type === 'estimate';
+
+  // 送信ボタンをローディング状態に
+  const btn = document.getElementById('sendEmailBtn');
+  const statusEl = document.getElementById('emailSendStatus');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 送信中...'; }
+  if (statusEl) statusEl.textContent = '';
+
+  // 受注URLの生成（見積書のみ）
+  let orderUrl = null;
+  if (isEstimate && includeLink && p?.id) {
+    const base = location.href.split('?')[0];
+    orderUrl = `${base}?order=${p.id}&est=${encodeURIComponent(p.estNo || '')}`;
+  }
+
+  // HTML本文生成
+  let html;
+  if (!window.CFG.resend.apiKey) {
+    // Resend未設定の場合はテキストのみ（mailto風）
+    toast('Resend APIキー未設定のため送信できません', '❌', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '📧 送信する'; }
+    return;
+  }
+
+  if (isEstimate && p) {
+    html = buildEstimateEmailHtml(p, client, co, orderUrl);
+  } else if (p) {
+    html = buildInvoiceEmailHtml(p, client, co);
+  } else {
+    // プレーンテキストのHTMLラップ
+    html = `<pre style="font-family:sans-serif;white-space:pre-wrap">${bodyText}</pre>`;
+  }
+
+  const result = await sendEmail({ to, cc, subject, html, text: bodyText });
+
+  if (result.success) {
+    closeModal('emailModal');
+    toast(`メールを送信しました（${to}）`, '📧', 'success');
+    if (isEstimate && orderUrl) {
+      setTimeout(() => showEstUrlPanel(orderUrl), 600);
+    }
+  } else {
+    if (statusEl) statusEl.textContent = '送信失敗: ' + result.error;
+    toast('送信失敗: ' + result.error, '❌', 'error');
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '📧 送信する'; }
+}
+
+function showEstUrlPanel(url) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:80px;right:24px;z-index:999;background:#fff;border:1px solid #d8d4cc;border-radius:8px;padding:18px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.15);max-width:380px;animation:toastIn 0.2s ease';
+  el.innerHTML = `
+    <button onclick="this.closest('div').remove()" style="position:absolute;top:8px;right:12px;background:none;border:none;color:#8a8680;font-size:18px;cursor:pointer;line-height:1">✕</button>
+    <div style="font-size:12px;font-weight:700;color:#0f0f14;margin-bottom:6px">📎 受注リンク（クライアント用）</div>
+    <div style="font-size:11px;color:#8a8680;margin-bottom:10px">クライアントがこのURLを開き「受注する」ボタンを押すと管理画面に通知されます。</div>
+    <div style="display:flex;gap:6px">
+      <input id="_estUrl" value="${url}" readonly style="flex:1;font-size:10px;padding:6px 8px;border:1px solid #d8d4cc;border-radius:3px;background:#f5f3ee;font-family:monospace;color:#8a8680;outline:none">
+      <button onclick="navigator.clipboard.writeText(document.getElementById('_estUrl').value).then(()=>{this.textContent='✓ 済';this.style.background='#2e8b57'})" style="white-space:nowrap;background:#0f0f14;color:#fff;border:none;padding:6px 12px;border-radius:3px;font-size:11px;cursor:pointer">コピー</button>
+    </div>`;
+  document.body.appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.remove(); }, 15000);
+}
+
+</script>
+<script>
+/* ============================================================
+   app.js — メインアプリケーションロジック
+   ============================================================ */
+
+/* ── STATE ── */
+window._editingProjectId = null;
+window._editingClientId = null;
+window._currentInvoiceData = null;
+let _statusFilter = 'all';
+
+/* ── INIT ── */
+async function init() {
+  setLoadingMsg('設定を読み込み中...');
+  applyConfigToForm();
+
+  setLoadingMsg('Supabase に接続中...');
+  const connected = initSupabase();
+
+  if (connected) {
+    setLoadingMsg('データを取得中...');
+    await Promise.all([dbFetchProjects(), dbFetchClients(), dbFetchDomains()]);
+    // Realtime購読
+    subscribeToOrders((p) => {
+      toast(`🎉 新受注！「${p.name}」`, '🎉', 'success');
+      updateOrderBadge();
+      refreshData();
+    });
+  } else {
+    setLoadingMsg('オフラインモードで起動中...');
+    await new Promise(r => setTimeout(r, 800));
+  }
+
+  renderTable();
+  updateKPI();
+  updateOrderBadge();
+  renderClients();
+  renderInvoiceList();
+  populateYearFilter();
+  handleUrlOrder();
+
+  hideLoading();
+}
+
+function setLoadingMsg(msg) {
+  const el = document.getElementById('loadingMsg');
+  if (el) el.textContent = msg;
+}
+
+function hideLoading() {
+  const loading = document.getElementById('appLoading');
+  const shell = document.getElementById('appShell');
+  if (loading) loading.style.display = 'none';
+  if (shell) shell.style.display = '';
+}
+
+async function refreshData() {
+  await Promise.all([dbFetchProjects(), dbFetchClients(), dbFetchDomains()]);
+  renderTable();
+  updateKPI();
+  updateOrderBadge();
+  renderClients();
+  renderInvoiceList();
+  populateYearFilter();
+  toast('データを更新しました', '🔄');
+}
+
+/* ── VIEW ── */
+function showView(view) {
+  ['ledger','orders','invoice','clients','domains','company'].forEach(v => {
+    const el = document.getElementById('view-'+v);
+    if (el) el.style.display = v === view ? '' : 'none';
+  });
+  document.querySelectorAll('.nav-item[data-view]').forEach(el => {
+    el.classList.toggle('active', el.dataset.view === view);
+  });
+  const titles = { ledger:'案件台帳', orders:'受注管理', invoice:'見積・請求書', clients:'取引先', domains:'ドメイン管理', company:'自社情報設定' };
+  document.getElementById('pageTitle').textContent = titles[view] || '';
+  document.getElementById('newProjectBtn').style.display = view === 'ledger' ? '' : 'none';
+  if (view === 'orders') renderOrdersTable();
+  if (view === 'company') applyConfigToForm();
+  if (view === 'domains') renderDomains();
+}
+
+/* ── KPI ── */
+function updateKPI() {
+  const projects = _cache.projects;
+  const statuses = ['all','ordered','wip','delivered','invoiced','paid'];
+  statuses.forEach(s => {
+    const list = s === 'all' ? projects : projects.filter(p => p.status === s);
+    const total = list.reduce((sum, p) => sum + calcSubtotal(p.lines), 0);
+    const cEl = document.getElementById('kpi-'+s);
+    const aEl = document.getElementById('kpi-'+s+'-amt');
+    if (cEl) cEl.textContent = list.length;
+    if (aEl) aEl.textContent = list.length ? '¥' + total.toLocaleString() : '';
+  });
+}
+
+/* ── PROJECT TABLE ── */
+function renderTable() {
+  const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const year = document.getElementById('yearFilter')?.value || '';
+  const sort = document.getElementById('sortSelect')?.value || 'date-desc';
+
+  let data = _cache.projects.filter(p => {
+    const client = getClientById(p.clientId);
+    const matchSearch = !search ||
+      (p.name || '').toLowerCase().includes(search) ||
+      (client?.name || '').toLowerCase().includes(search) ||
+      (p.code || '').toLowerCase().includes(search);
+    const matchStatus = _statusFilter === 'all' || p.status === _statusFilter;
+    const matchYear = !year || (p.orderDate || '').startsWith(year);
+    return matchSearch && matchStatus && matchYear;
+  });
+
+  data = [...data].sort((a, b) => {
+    if (sort === 'date-desc') return (b.orderDate || '') > (a.orderDate || '') ? 1 : -1;
+    if (sort === 'date-asc') return (a.orderDate || '') > (b.orderDate || '') ? 1 : -1;
+    if (sort === 'amount-desc') return calcSubtotal(b.lines) - calcSubtotal(a.lines);
+    if (sort === 'amount-asc') return calcSubtotal(a.lines) - calcSubtotal(b.lines);
+    return 0;
+  });
+
+  const tbody = document.getElementById('projectTableBody');
+  if (!tbody) return;
+
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="icon">📭</div><p>該当する案件がありません</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.map(p => {
+    const client = getClientById(p.clientId);
+    const sub = calcSubtotal(p.lines);
+    const due = p.dueDate && isOverdue(p.dueDate, p.status);
+    return `<tr onclick="openEditProject('${p.id}')">
+      <td><span class="project-code">${p.code || '—'}</span></td>
+      <td>
+        <div class="project-name">${p.name}</div>
+        <div class="project-client">${client?.name || '—'}</div>
+      </td>
+      <td>${statusBadge(p.status)}</td>
+      <td style="font-size:13px">${fmtDate(p.orderDate)}</td>
+      <td style="font-size:13px;${due ? 'color:var(--accent);font-weight:600' : ''}">${fmtDate(p.dueDate)}${due ? ' ⚠' : ''}</td>
+      <td class="amount">¥${sub.toLocaleString()}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openInvoicePreviewById('${p.id}','estimate')">見積</button>
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openInvoicePreviewById('${p.id}','invoice')">請求</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function isOverdue(dateStr, status) {
+  if (['invoiced','paid','delivered'].includes(status)) return false;
+  return new Date(dateStr) < new Date();
+}
+
+function statusBadge(s) {
+  const map = { ordered:'受注', wip:'作業中', delivered:'納品済', invoiced:'請求済', paid:'領収済' };
+  return `<span class="badge badge-${s}">${map[s] || s}</span>`;
+}
+
+function filterByStatus(status) {
+  _statusFilter = status;
+  document.querySelectorAll('.kpi-card').forEach(el => el.classList.remove('active'));
+  document.querySelector(`.kpi-card[data-status="${status}"]`)?.classList.add('active');
+  renderTable();
+}
+
+function populateYearFilter() {
+  const years = [...new Set(_cache.projects
+    .map(p => p.orderDate ? p.orderDate.split('-')[0] : null)
+    .filter(Boolean))].sort().reverse();
+  const sel = document.getElementById('yearFilter');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">全年度</option>' + years.map(y => `<option value="${y}">${y}年度</option>`).join('');
+}
+
+/* ── ORDERS VIEW ── */
+function renderOrdersTable() {
+  const search = (document.getElementById('orderSearch')?.value || '').toLowerCase();
+  const sf = document.getElementById('orderStatusFilter')?.value || '';
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  // サマリー
+  ['ordered','wip'].forEach(s => {
+    const list = _cache.projects.filter(p => p.status === s);
+    const el = document.getElementById(`ord-count-${s}`);
+    const ae = document.getElementById(`ord-amt-${s}`);
+    if (el) el.textContent = list.length;
+    if (ae) ae.textContent = list.length ? '¥' + list.reduce((s, p) => s + calcSubtotal(p.lines), 0).toLocaleString() : '';
+  });
+  const mList = _cache.projects.filter(p => (p.orderedAt || p.orderDate || '').startsWith(thisMonth));
+  const mc = document.getElementById('ord-count-month');
+  const ma = document.getElementById('ord-amt-month');
+  if (mc) mc.textContent = mList.length;
+  if (ma) ma.textContent = mList.length ? '¥' + mList.reduce((s, p) => s + calcSubtotal(p.lines), 0).toLocaleString() : '';
+
+  const list = _cache.projects.filter(p => {
+    const client = getClientById(p.clientId);
+    return ['ordered','wip'].includes(p.status) &&
+      (!sf || p.status === sf) &&
+      (!search || (p.name||'').toLowerCase().includes(search) || (client?.name||'').toLowerCase().includes(search));
+  });
+
+  const tbody = document.getElementById('ordersTableBody');
+  if (!tbody) return;
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="icon">📭</div><p>受注・作業中の案件がありません</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(p => {
+    const client = getClientById(p.clientId);
+    const sub = calcSubtotal(p.lines);
+    const isNew = p.isNewOrder;
+    const routeColor = p.orderRoute === '見積書承認' ? 'color:var(--status-ordered);font-weight:600' : 'color:var(--muted)';
+    return `<tr onclick="openEditProject('${p.id}')" style="${isNew ? 'background:rgba(46,139,87,0.04)' : ''}">
+      <td>
+        <span class="project-code">${p.code || '—'}</span>
+        ${isNew ? '<span class="badge-new" style="margin-left:6px">NEW</span>' : ''}
+      </td>
+      <td><div class="project-name">${p.name}</div><div class="project-client">${client?.name || '—'}</div></td>
+      <td>${statusBadge(p.status)}</td>
+      <td style="font-size:12px;color:var(--muted)">${p.orderedAt ? fmtDatetime(p.orderedAt) : fmtDate(p.orderDate)}</td>
+      <td><span style="font-size:12px;${routeColor}">${p.orderRoute || '手動登録'}</span></td>
+      <td class="amount">¥${sub.toLocaleString()}</td>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:4px">
+          ${p.status === 'ordered' ? `<button class="btn btn-sm btn-green" onclick="changeProjectStatus('${p.id}','wip')">作業開始</button>` : ''}
+          ${p.status === 'wip' ? `<button class="btn btn-sm" style="background:var(--status-delivered);color:#fff" onclick="changeProjectStatus('${p.id}','delivered')">納品済へ</button>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  updateOrderBadge();
+}
+
+async function changeProjectStatus(id, newStatus) {
+  const p = _cache.projects.find(x => x.id === id);
+  if (!p) return;
+  try {
+    await dbUpdateProjectStatus(id, newStatus, { isNewOrder: false });
+    const labels = { wip:'作業中', delivered:'納品済', invoiced:'請求済', paid:'領収済' };
+    toast(`「${p.name}」を${labels[newStatus]}に変更`, '✅', 'success');
+    renderOrdersTable();
+    renderTable();
+    updateKPI();
+  } catch(e) {}
+}
+
+function updateOrderBadge() {
+  const count = _cache.projects.filter(p => p.isNewOrder).length;
+  const badge = document.getElementById('orderBadge');
+  if (!badge) return;
+  badge.style.display = count > 0 ? 'inline-block' : 'none';
+  badge.textContent = count;
+}
+
+/* ── INVOICE LIST ── */
+function renderInvoiceList() {
+  const search = (document.getElementById('invSearch')?.value || '').toLowerCase();
+  const tbody = document.getElementById('invoiceListBody');
+  if (!tbody) return;
+
+  const list = _cache.projects.filter(p =>
+    !search ||
+    (p.name||'').toLowerCase().includes(search) ||
+    (p.estNo||'').toLowerCase().includes(search) ||
+    (p.invNo||'').toLowerCase().includes(search) ||
+    (getClientById(p.clientId)?.name||'').toLowerCase().includes(search)
+  );
+
+  tbody.innerHTML = list.map(p => {
+    const client = getClientById(p.clientId);
+    const sub = calcSubtotal(p.lines);
+    const grand = sub + Math.round(sub * (Number(window.CFG.company.taxRate) || 10) / 100);
+    return `<tr>
+      <td>
+        <div class="font-mono" style="font-size:12px">${p.estNo || '—'}</div>
+        <div class="font-mono text-muted" style="font-size:11px">${p.invNo || '—'}</div>
+      </td>
+      <td><div style="font-weight:500">${p.name}</div><div class="text-muted" style="font-size:12px">${client?.name || '—'}</div></td>
+      <td>${fmtDate(p.orderDate)}</td>
+      <td class="amount">¥${grand.toLocaleString()}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-sm" onclick="openInvoicePreviewById('${p.id}','estimate')">見積</button>
+          <button class="btn btn-ghost btn-sm" onclick="openInvoicePreviewById('${p.id}','invoice')">請求</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── PROJECT MODAL ── */
+async function openNewProject() {
+  window._editingProjectId = null;
+  document.getElementById('projectModalTitle').textContent = '新規案件登録';
+  document.getElementById('deleteProjectBtn').style.display = 'none';
+
+  const today = new Date().toISOString().split('T')[0];
+  const [code, estNo, invNo] = await Promise.all([
+    dbNextCode(),
+    dbNextDocNo('estimate'),
+    dbNextDocNo('invoice'),
+  ]);
+
+  document.getElementById('p-code').value = code;
+  document.getElementById('p-status').value = 'ordered';
+  document.getElementById('p-name').value = '';
+  document.getElementById('p-manager').value = '';
+  document.getElementById('p-order-date').value = today;
+  document.getElementById('p-due-date').value = '';
+  document.getElementById('p-desc').value = '';
+  document.getElementById('p-memo').value = '';
+  document.getElementById('p-est-no').value = estNo;
+  document.getElementById('p-inv-no').value = invNo;
+
+  populateClientSelect();
+  clearLineItems();
+  addLineItem();
+  updateStatusFlow('ordered');
+  switchTab('project','info');
+  openModal('projectModal');
+}
+
+function openEditProject(id) {
+  const p = _cache.projects.find(x => x.id === id);
+  if (!p) return;
+  window._editingProjectId = id;
+
+  document.getElementById('projectModalTitle').textContent = '案件詳細';
+  document.getElementById('deleteProjectBtn').style.display = 'inline-flex';
+  document.getElementById('p-code').value = p.code || '';
+  document.getElementById('p-status').value = p.status;
+  document.getElementById('p-name').value = p.name;
+  document.getElementById('p-manager').value = p.manager || '';
+  document.getElementById('p-order-date').value = p.orderDate || '';
+  document.getElementById('p-due-date').value = p.dueDate || '';
+  document.getElementById('p-desc').value = p.desc || '';
+  document.getElementById('p-memo').value = p.memo || '';
+  document.getElementById('p-est-no').value = p.estNo || '';
+  document.getElementById('p-inv-no').value = p.invNo || '';
+
+  populateClientSelect(p.clientId);
+  clearLineItems();
+  (p.lines || []).forEach(l => addLineItem(l));
+  calcTotals();
+  updateStatusFlow(p.status);
+  switchTab('project','info');
+  openModal('projectModal');
+}
+
+async function saveProject() {
+  const name = document.getElementById('p-name')?.value?.trim();
+  if (!name) { toast('案件名を入力してください', '⚠️'); return; }
+
+  const btn = document.getElementById('saveProjectBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 保存中...'; }
+
+  try {
+    const data = {
+      id: window._editingProjectId,
+      code: document.getElementById('p-code')?.value,
+      name,
+      status: document.getElementById('p-status')?.value,
+      clientId: document.getElementById('p-client')?.value,
+      manager: document.getElementById('p-manager')?.value,
+      orderDate: document.getElementById('p-order-date')?.value || null,
+      dueDate: document.getElementById('p-due-date')?.value || null,
+      desc: document.getElementById('p-desc')?.value,
+      memo: document.getElementById('p-memo')?.value,
+      estNo: document.getElementById('p-est-no')?.value,
+      invNo: document.getElementById('p-inv-no')?.value,
+      lines: collectLines(),
+      orderRoute: window._editingProjectId ?
+        (_cache.projects.find(p => p.id === window._editingProjectId)?.orderRoute || '手動登録') :
+        '手動登録',
+    };
+
+    const saved = await dbSaveProject(data);
+
+    // キャッシュ更新
+    if (window._editingProjectId) {
+      const idx = _cache.projects.findIndex(p => p.id === window._editingProjectId);
+      if (idx >= 0) _cache.projects[idx] = { ..._cache.projects[idx], ...data, id: saved.id || window._editingProjectId };
+    } else {
+      _cache.projects.unshift({ ...data, id: saved.id });
+    }
+
+    closeModal('projectModal');
+    renderTable();
+    updateKPI();
+    renderInvoiceList();
+    populateYearFilter();
+    toast(window._editingProjectId ? '案件を更新しました' : '案件を登録しました', '✅', 'success');
+  } catch (e) {
+    // エラーはdbSaveProject内でtoast済み
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '保存する'; }
+  }
+}
+
+async function deleteProject() {
+  const id = window._editingProjectId;
+  if (!id) return;
+  const p = _cache.projects.find(x => x.id === id);
+  if (!confirm(`「${p?.name}」を削除しますか？この操作は取り消せません。`)) return;
+  try {
+    await dbDeleteProject(id);
+    closeModal('projectModal');
+    renderTable();
+    updateKPI();
+    renderInvoiceList();
+    toast('案件を削除しました', '🗑');
+  } catch (e) {}
+}
+
+function setStatus(s) {
+  document.getElementById('p-status').value = s;
+  updateStatusFlow(s);
+}
+
+function updateStatusFlow(s) {
+  document.querySelectorAll('.status-step').forEach(el => {
+    el.classList.toggle('current', el.dataset.s === s);
+  });
+}
+
+/* ── LINE ITEMS ── */
+function clearLineItems() { document.getElementById('lineItems').innerHTML = ''; }
+
+function addLineItem(line = {}) {
+  const tbody = document.getElementById('lineItems');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" value="${line.name||''}" placeholder="品目名" oninput="calcTotals()"></td>
+    <td><input type="number" value="${line.qty||1}" min="0" step="0.5" style="text-align:center" oninput="calcTotals()"></td>
+    <td><input type="number" value="${line.price||0}" min="0" style="text-align:right" oninput="calcTotals()"></td>
+    <td class="line-total text-right"></td>
+    <td><button class="delete-line" onclick="this.closest('tr').remove();calcTotals()">✕</button></td>`;
+  tbody.appendChild(tr);
+  calcTotals();
+}
+
+function collectLines() {
+  return Array.from(document.querySelectorAll('#lineItems tr')).map(tr => {
+    const inputs = tr.querySelectorAll('input');
+    return { name: inputs[0]?.value || '', qty: Number(inputs[1]?.value) || 0, price: Number(inputs[2]?.value) || 0 };
+  }).filter(l => l.name || l.price > 0);
+}
+
+function calcTotals() {
+  let subtotal = 0;
+  document.querySelectorAll('#lineItems tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    const qty = Number(inputs[1]?.value) || 0;
+    const price = Number(inputs[2]?.value) || 0;
+    const total = qty * price;
+    subtotal += total;
+    const td = tr.querySelector('.line-total');
+    if (td) td.textContent = '¥' + total.toLocaleString();
+  });
+  const taxRate = Number(window.CFG.company.taxRate) || 10;
+  const tax = Math.round(subtotal * taxRate / 100);
+  const grand = subtotal + tax;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('sub-subtotal', '¥' + subtotal.toLocaleString());
+  set('sub-tax', '¥' + tax.toLocaleString());
+  set('sub-total', '¥' + grand.toLocaleString());
+  const taxLabel = document.getElementById('sub-tax-label');
+  if (taxLabel) taxLabel.textContent = `消費税（${taxRate}%）`;
+}
+
+/* ── CLIENT SELECT ── */
+function populateClientSelect(selectedId = '') {
+  const sel = document.getElementById('p-client');
+  if (!sel) return;
+  sel.innerHTML = _cache.clients.length
+    ? _cache.clients.map(c => `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''}>${c.name}</option>`).join('')
+    : '<option value="">取引先を先に登録してください</option>';
+}
+
+/* ── CLIENTS ── */
+function renderClients() {
+  const search = (document.getElementById('clientSearch')?.value || '').toLowerCase();
+  const tbody = document.getElementById('clientTableBody');
+  if (!tbody) return;
+  const list = _cache.clients.filter(c => !search || c.name.toLowerCase().includes(search));
+  tbody.innerHTML = list.map(c => {
+    const cnt = _cache.projects.filter(p => p.clientId === c.id).length;
+    return `<tr onclick="openEditClient('${c.id}')">
+      <td style="font-weight:500">${c.name}</td>
+      <td>${c.contact||'—'}</td>
+      <td><a href="mailto:${c.email}" style="color:var(--accent2)" onclick="event.stopPropagation()">${c.email||'—'}</a></td>
+      <td>${c.tel||'—'}</td>
+      <td class="font-mono">${cnt}</td>
+      <td><div class="row-actions"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditClient('${c.id}')">編集</button></div></td>
+    </tr>`;
+  }).join('');
+}
+
+function openClientModal() {
+  window._editingClientId = null;
+  document.getElementById('clientModalTitle').textContent = '取引先登録';
+  document.getElementById('deleteClientBtn').style.display = 'none';
+  ['cl-name','cl-contact','cl-email','cl-tel','cl-zip','cl-addr'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  openModal('clientModal');
+}
+
+function openEditClient(id) {
+  const c = _cache.clients.find(x => x.id === id);
+  if (!c) return;
+  window._editingClientId = id;
+  document.getElementById('clientModalTitle').textContent = '取引先編集';
+  document.getElementById('deleteClientBtn').style.display = 'inline-flex';
+  document.getElementById('cl-name').value = c.name || '';
+  document.getElementById('cl-contact').value = c.contact || '';
+  document.getElementById('cl-email').value = c.email || '';
+  document.getElementById('cl-tel').value = c.tel || '';
+  document.getElementById('cl-zip').value = c.zip || '';
+  document.getElementById('cl-addr').value = c.addr || '';
+  openModal('clientModal');
+}
+
+async function saveClient() {
+  const name = document.getElementById('cl-name')?.value?.trim();
+  if (!name) { toast('会社名を入力してください', '⚠️'); return; }
+  const clientData = {
+    id: window._editingClientId,
+    name,
+    contact: document.getElementById('cl-contact')?.value || null,
+    email: document.getElementById('cl-email')?.value || null,
+    tel: document.getElementById('cl-tel')?.value || null,
+    zip: document.getElementById('cl-zip')?.value || null,
+    addr: document.getElementById('cl-addr')?.value || null,
+  };
+  try {
+    const saved = await dbSaveClient(clientData);
+    if (window._editingClientId) {
+      const idx = _cache.clients.findIndex(c => c.id === window._editingClientId);
+      if (idx >= 0) _cache.clients[idx] = { ..._cache.clients[idx], ...clientData };
+    } else {
+      _cache.clients.push({ ...clientData, id: saved.id });
+    }
+    closeModal('clientModal');
+    renderClients();
+    populateClientSelect();
+    toast(window._editingClientId ? '取引先を更新しました' : '取引先を登録しました', '✅', 'success');
+  } catch (e) {}
+}
+
+async function deleteClient() {
+  const id = window._editingClientId;
+  if (!id) return;
+  const c = _cache.clients.find(x => x.id === id);
+  if (!confirm(`「${c?.name}」を削除しますか？`)) return;
+  try {
+    await dbDeleteClient(id);
+    closeModal('clientModal');
+    renderClients();
+    toast('取引先を削除しました', '🗑');
+  } catch (e) {}
+}
+
+/* ── MODAL / TAB HELPERS ── */
+function openModal(id) { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+document.querySelectorAll('.overlay').forEach(el => {
+  el.addEventListener('click', (e) => { if (e.target === el) el.classList.remove('open'); });
+});
+
+function switchTab(prefix, tab) {
+  const tabs = { project: ['info','estimate','memo'] };
+  const list = tabs[prefix] || [];
+  document.querySelectorAll(`#${prefix}Modal .tab`).forEach((el, i) => {
+    el.classList.toggle('active', list[i] === tab);
+  });
+  document.querySelectorAll(`#${prefix}Modal .tab-panel`).forEach(el => {
+    el.classList.toggle('active', el.id === `${prefix}-tab-${tab}`);
+  });
+}
+
+/* ── TOAST ── */
+function toast(msg, icon = '✓', type = '') {
+  const el = document.createElement('div');
+  el.className = `toast${type ? ' ' + type : ''}`;
+  el.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+/* ── START ── */
+init();
+
+/* ============================================================
+   DOMAIN MANAGEMENT
+   ============================================================ */
+
+let _editingDomainId = null;
+
+/* ── レンダリング ── */
+function renderDomains() {
+  const search = (document.getElementById('domainSearch')?.value || '').toLowerCase();
+  const monthFilter = document.getElementById('domainMonthFilter')?.value;
+  const tbody = document.getElementById('domainTableBody');
+  if (!tbody) return;
+
+  let domains = _cache.domains || [];
+
+  // フィルタ
+  if (search) {
+    domains = domains.filter(d => {
+      const clientName = getClientById(d.client_id)?.name || '';
+      return d.domain_name.toLowerCase().includes(search) || clientName.toLowerCase().includes(search);
+    });
+  }
+  if (monthFilter) {
+    domains = domains.filter(d => String(d.renewal_month) === monthFilter);
+  }
+
+  // 今月・来月の更新アラート
+  const now = new Date();
+  const thisMonth = now.getMonth() + 1;
+  const nextMonth = thisMonth === 12 ? 1 : thisMonth + 1;
+  const alertDomains = (_cache.domains || []).filter(d =>
+    d.renewal_month === thisMonth || d.renewal_month === nextMonth
+  );
+  const alertEl = document.getElementById('domainAlert');
+  if (alertEl) {
+    if (alertDomains.length > 0) {
+      const names = alertDomains.map(d => `<strong>${d.domain_name}</strong>（${d.renewal_month}月更新）`).join('、');
+      alertEl.innerHTML = `⚠️ 更新が近いドメイン: ${names}`;
+      alertEl.style.display = '';
+    } else {
+      alertEl.style.display = 'none';
+    }
+  }
+
+  if (domains.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">ドメインが登録されていません</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = domains.map(d => {
+    const client = getClientById(d.client_id);
+    const clientName = client ? client.name : '<span style="color:var(--muted)">未設定</span>';
+    const renewal = d.renewal_month ? `${d.renewal_month}月` : '<span style="color:var(--muted)">-</span>';
+    const billing = d.billing_month ? `${d.billing_month}月` : '<span style="color:var(--muted)">-</span>';
+
+    // 今月・来月は強調
+    const isUrgent = d.renewal_month === thisMonth;
+    const isSoon   = d.renewal_month === nextMonth;
+    const badge = isUrgent
+      ? '<span style="background:#ff5252;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">今月</span>'
+      : isSoon
+      ? '<span style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">来月</span>'
+      : '';
+
+    return `<tr onclick="openDomainModal('${d.id}')" style="cursor:pointer">
+      <td><strong>${d.domain_name}</strong>${badge}</td>
+      <td>${clientName}</td>
+      <td>${d.registrar || '<span style="color:var(--muted)">-</span>'}</td>
+      <td style="text-align:center">${renewal}</td>
+      <td style="text-align:center">${billing}</td>
+      <td style="color:var(--muted);font-size:12px">${d.memo || ''}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openDomainModal('${d.id}')">編集</button></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── モーダル開閉 ── */
+function openDomainModal(id) {
+  _editingDomainId = id || null;
+  const domain = id ? (_cache.domains || []).find(d => d.id === id) : null;
+
+  document.getElementById('domainModalTitle').textContent = domain ? 'ドメイン編集' : 'ドメイン追加';
+  document.getElementById('deleteDomainBtn').style.display = domain ? '' : 'none';
+
+  // クライアントセレクト構築
+  const sel = document.getElementById('dm-client');
+  sel.innerHTML = '<option value="">（未設定）</option>' +
+    (_cache.clients || []).map(c =>
+      `<option value="${c.id}" ${domain?.client_id === c.id ? 'selected' : ''}>${c.name}</option>`
+    ).join('');
+
+  // フォームにデータ設定
+  document.getElementById('dm-name').value      = domain?.domain_name   || '';
+  document.getElementById('dm-renewal').value   = domain?.renewal_month || '';
+  document.getElementById('dm-billing').value   = domain?.billing_month || '';
+  document.getElementById('dm-registrar').value = domain?.registrar     || '';
+  document.getElementById('dm-memo').value      = domain?.memo          || '';
+
+  openModal('domainModal');
+}
+
+/* ── 保存 ── */
+async function saveDomain() {
+  const name = document.getElementById('dm-name').value.trim();
+  if (!name) { toast('ドメイン名を入力してください', '⚠️'); return; }
+
+  const data = {
+    domain_name:   name,
+    client_id:     document.getElementById('dm-client').value || null,
+    renewal_month: Number(document.getElementById('dm-renewal').value) || null,
+    billing_month: Number(document.getElementById('dm-billing').value) || null,
+    registrar:     document.getElementById('dm-registrar').value.trim() || null,
+    memo:          document.getElementById('dm-memo').value.trim() || null,
+  };
+
+  if (_editingDomainId) data.id = _editingDomainId;
+
+  try {
+    const saved = await dbSaveDomain(data);
+    // キャッシュ更新
+    if (!_cache.domains) _cache.domains = [];
+    if (_editingDomainId) {
+      const idx = _cache.domains.findIndex(d => d.id === _editingDomainId);
+      if (idx >= 0) _cache.domains[idx] = { ..._cache.domains[idx], ...saved };
+    } else {
+      _cache.domains.unshift(saved);
+    }
+    closeModal('domainModal');
+    renderDomains();
+    toast(_editingDomainId ? 'ドメインを更新しました' : 'ドメインを追加しました', '✅', 'success');
+  } catch(e) {
+    toast('保存エラー: ' + e.message, '❌', 'error');
+  }
+}
+
+/* ── 削除 ── */
+async function deleteDomain() {
+  if (!_editingDomainId) return;
+  const domain = (_cache.domains || []).find(d => d.id === _editingDomainId);
+  if (!confirm(`「${domain?.domain_name}」を削除しますか？`)) return;
+  try {
+    await dbDeleteDomain(_editingDomainId);
+    _cache.domains = (_cache.domains || []).filter(d => d.id !== _editingDomainId);
+    closeModal('domainModal');
+    renderDomains();
+    toast('削除しました', '🗑');
+  } catch(e) {
+    toast('削除エラー: ' + e.message, '❌', 'error');
+  }
+}
+
+</script>
+</body>
+</html>

@@ -35,13 +35,19 @@ async function sendEmail({ to, cc, subject, html, text }) {
   };
   if (cc) payload.cc = [cc];
 
+  // ローカルファイル（file://）ではPHPプロキシが使えないため直接呼び出し
+  const isLocal = location.protocol === 'file:' || location.hostname === 'localhost';
+  const endpoint = isLocal
+    ? 'https://api.resend.com/emails'
+    : '/api/send-email.php';
+  const headers = isLocal
+    ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` }
+    : { 'Content-Type': 'application/json' };
+
   try {
-    // Cloud Run上のPHPプロキシ経由（CORSブロック回避）
-    const res = await fetch('/api/send-email.php', {
+    const res = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
@@ -52,7 +58,11 @@ async function sendEmail({ to, cc, subject, html, text }) {
     return { success: true, id: data.id };
   } catch (e) {
     console.error('メール送信エラー:', e);
-    return { success: false, error: e.message };
+    // ローカルプレビューでのCORSエラーの場合はわかりやすいメッセージ
+    const msg = (e.message === 'Load failed' || e.message === 'Failed to fetch')
+      ? 'プレビュー環境からは送信できません。Cloud RunにデプロイしたURLから送信してください。'
+      : e.message;
+    return { success: false, error: msg };
   }
 }
 

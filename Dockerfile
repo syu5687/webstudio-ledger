@@ -19,8 +19,8 @@ RUN printf '%s\n' \
   '    Require all granted' \
   '</Directory>' >> /etc/apache2/apache2.conf
 
-# Node.jsをインストール（entrypoint.sh内でbuild.js実行用）
-RUN apt-get update && apt-get install -y nodejs npm && apt-get clean
+# PHP curl拡張・Node.jsをインストール
+RUN apt-get update && apt-get install -y nodejs npm libcurl4-openssl-dev && apt-get clean  && docker-php-ext-install curl
 
 # ファイル配置
 COPY . /var/www/html

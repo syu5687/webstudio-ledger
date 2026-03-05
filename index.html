@@ -38,6 +38,9 @@
         <span class="nav-icon">✅</span> 受注管理
         <span class="nav-badge" id="orderBadge" style="display:none"></span>
       </div>
+      <div class="nav-item" data-view="board" onclick="showView('board')">
+        <span class="nav-icon">🗂️</span> カンバンボード
+      </div>
       <div class="nav-item" data-view="invoice" onclick="showView('invoice')">
         <span class="nav-icon">🧾</span> 見積・請求書
       </div>
@@ -82,7 +85,7 @@
     <div class="topbar">
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-0905</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-0913</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -363,6 +366,11 @@
       </div>
 
       <!-- COMPANY VIEW -->
+      <!-- KANBAN BOARD VIEW -->
+      <div id="view-board" style="display:none;padding:0">
+        <div id="kanbanBoard" class="kanban-wrap"></div>
+      </div>
+
       <!-- OWN SERVERS VIEW -->
       <div id="view-own-servers" style="display:none">
         <div class="toolbar">

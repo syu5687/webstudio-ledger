@@ -108,7 +108,7 @@ function showView(view) {
   document.querySelectorAll('.nav-item[data-view]').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
   });
-  const titles = { ledger:'案件台帳', orders:'受注管理', invoice:'見積・請求書', clients:'取引先', domains:'ドメイン管理', hostings:'ホスティング管理', monthly:'月次請求リスト', dashboard:'売上ダッシュボード', 'own-servers':'サーバー管理', 'own-subscriptions':'サブスク管理', company:'自社情報設定' };
+  const titles = { ledger:'案件台帳', orders:'受注管理', invoice:'見積・請求書', clients:'取引先', domains:'ドメイン管理', hostings:'ホスティング管理', monthly:'月次請求リスト', dashboard:'売上ダッシュボード', board:'カンバンボード', 'own-servers':'サーバー管理', 'own-subscriptions':'サブスク管理', company:'自社情報設定' };
   document.getElementById('pageTitle').textContent = titles[view] || '';
   document.getElementById('newProjectBtn').style.display = view === 'ledger' ? '' : 'none';
   if (view === 'orders') renderOrdersTable();
@@ -117,6 +117,7 @@ function showView(view) {
   if (view === 'hostings') renderHostings();
   if (view === 'monthly') renderMonthly();
   if (view === 'dashboard') renderDashboard();
+  if (view === 'board') renderBoard();
   if (view === 'own-servers') renderOwnServers();
   if (view === 'own-subscriptions') renderOwnSubscriptions();
 }
@@ -1374,3 +1375,120 @@ function deleteOwnSub() {
     if (subs)    _cache.ownSubscriptions = JSON.parse(subs);
   } catch(e) {}
 })();
+
+/* ============================================================
+   KANBAN BOARD
+   ============================================================ */
+const KANBAN_COLS = [
+  { id: 'ordered',   label: '受注',   color: '#1565c0' },
+  { id: 'wip',       label: '作業中', color: '#e65100' },
+  { id: 'delivered', label: '納品済', color: '#4527a0' },
+  { id: 'invoiced',  label: '請求済', color: '#ad1457' },
+  { id: 'paid',      label: '入金済', color: '#2e7d32' },
+];
+
+let _dragCard   = null;
+let _dragCardId = null;
+
+function renderBoard() {
+  const wrap = document.getElementById('kanbanBoard');
+  if (!wrap) return;
+  const projects = _cache.projects || [];
+
+  wrap.innerHTML = KANBAN_COLS.map(col => {
+    const cards = projects.filter(p => p.status === col.id);
+    const totalAmt = cards.reduce((s, p) => {
+      const sub = calcSubtotal(p.lines);
+      return s + sub + Math.round(sub * (Number(window.CFG?.company?.taxRate) || 10) / 100);
+    }, 0);
+
+    const cardsHtml = cards.map(p => {
+      const client = getClientById(p.clientId) || p._client || {};
+      const sub    = calcSubtotal(p.lines);
+      const grand  = sub + Math.round(sub * (Number(window.CFG?.company?.taxRate) || 10) / 100);
+      const over   = p.dueDate && isOverdue(p.dueDate, p.status);
+      const dueStr = p.dueDate ? p.dueDate.replace(/-/g, '/') : '';
+      const dueClass = over ? 'overdue' : '';
+
+      return `<div class="kanban-card${over ? ' overdue-card' : ''}"
+        draggable="true"
+        data-id="${p.id}"
+        ondragstart="onCardDragStart(event,'${p.id}')"
+        ondragend="onCardDragEnd(event)"
+        onclick="openEditProject('${p.id}')">
+        <div class="kanban-card-name">${p.name}</div>
+        <div class="kanban-card-client">🏢 ${client.name || '—'}</div>
+        <div class="kanban-card-meta">
+          <span class="kanban-card-amount">¥${grand.toLocaleString()}</span>
+          <span class="kanban-card-due ${dueClass}">${dueStr ? '📅 ' + dueStr : ''}</span>
+        </div>
+        ${p.manager ? `<div class="kanban-card-manager">👤 ${p.manager}</div>` : ''}
+        ${over ? '<div style="font-size:10px;color:#ff5252;margin-top:4px">⚠️ 納期超過</div>' : ''}
+      </div>`;
+    }).join('');
+
+    return `<div class="kanban-col"
+      ondragover="onColDragOver(event)"
+      ondragleave="onColDragLeave(event)"
+      ondrop="onColDrop(event,'${col.id}')">
+      <div class="kanban-col-header" style="background:${col.color}22;border-top:3px solid ${col.color}">
+        <span style="color:${col.color}">${col.label}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${cards.length > 0 ? `<span style="font-size:10px;color:${col.color};font-family:monospace">¥${(totalAmt/10000).toFixed(0)}万</span>` : ''}
+          <span class="kanban-count" style="background:${col.color}44;color:${col.color}">${cards.length}</span>
+        </div>
+      </div>
+      <div class="kanban-col-body" id="col-${col.id}">
+        ${cardsHtml}
+        ${cards.length === 0 ? '<div style="text-align:center;font-size:12px;color:var(--muted);padding:20px 0;border:1px dashed #3a3a42;border-radius:6px">案件なし</div>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── Drag & Drop ── */
+function onCardDragStart(e, id) {
+  _dragCardId = id;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function onCardDragEnd(e) {
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over'));
+}
+function onColDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function onColDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+async function onColDrop(e, newStatus) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!_dragCardId) return;
+
+  const p = (_cache.projects || []).find(x => x.id === _dragCardId);
+  if (!p || p.status === newStatus) { _dragCardId = null; return; }
+
+  const prev = p.status;
+  p.status = newStatus;
+
+  // 受注ステータスに変わった && 受注日未設定なら今日をセット
+  const orderedStatuses = ['ordered','wip','delivered','invoiced','paid'];
+  if (orderedStatuses.includes(newStatus) && !orderedStatuses.includes(prev) && !p.orderDate) {
+    p.orderDate = new Date().toISOString().split('T')[0];
+  }
+
+  renderBoard();
+  try {
+    await dbSaveProject(p);
+    toast(`「${p.name}」を「${KANBAN_COLS.find(c=>c.id===newStatus)?.label||newStatus}」に移動しました`, '🗂️', 'success');
+  } catch(err) {
+    p.status = prev;
+    renderBoard();
+    toast('更新に失敗しました', '❌');
+  }
+  _dragCardId = null;
+}
