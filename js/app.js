@@ -1249,11 +1249,12 @@ async function confirmBatchInvoice() {
   const invNo = `INV-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
   try {
-    // 案件 → ステータスを「請求済」に変更
+    // 案件 → ステータスを「請求済」に変更（明細はそのまま、statusとinvNoのみ更新）
     for (const pid of checkedProjIds) {
       const proj = (_cache.projects||[]).find(p => p.id === pid);
       if (!proj) continue;
       const updData = { ...proj, status: 'invoiced', invNo: proj.invNo || invNo };
+      // lines は proj のものをそのまま使う（ドメイン・ホスティングは別案件として登録するため混入させない）
       const saved = await dbSaveProject(updData);
       const idx = (_cache.projects||[]).findIndex(p => p.id === pid);
       if (idx >= 0) _cache.projects[idx] = saved || { ..._cache.projects[idx], status: 'invoiced' };
