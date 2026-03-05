@@ -27,10 +27,10 @@ function saveCompanyToStorage(data) {
 function getEnv() {
   const env = window.ENV || {};
   return {
-    supabaseUrl:     env.SUPABASE_URL      || '',
-    supabaseAnonKey: env.SUPABASE_ANON_KEY || '',
-    resendApiKey:    env.RESEND_API_KEY    || '',
-    resendFromEmail: env.RESEND_FROM_EMAIL || '',
+    supabaseUrl:     env.SUPABASE_URL      || 'https://ehovgxyqlongollwyrml.supabase.co',
+    supabaseAnonKey: env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVob3ZneHlxbG9uZ29sbHd5cm1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NzcyMDgsImV4cCI6MjA4ODI1MzIwOH0.rdkzvNrsO8PkKDuMJNZwqY0pQDnabfVcmJnDhiv1wfc',
+    resendApiKey:    env.RESEND_API_KEY    || 're_2uUwkqYF_QELAZsUopJCY2KC3h2Ngw75J',
+    resendFromEmail: env.RESEND_FROM_EMAIL || 'estimate@nfz33.com',
   };
 }
 
