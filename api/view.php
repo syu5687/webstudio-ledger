@@ -82,52 +82,29 @@ if (empty($p[$openedField])) {
     ]);
 }
 
-// 金額計算
+// 自社情報取得（振込先・税率）
+$companyRows = supabaseGet($supabaseUrl, $supabaseKey, '/rest/v1/company_settings?id=eq.1&select=*');
+$co = $companyRows[0] ?? [];
+$coBank    = $co['bank']    ?? '';
+$coAccount = $co['account'] ?? '';
+$coHolder  = $co['holder']  ?? '';
+$taxRate   = isset($co['tax_rate']) ? (int)$co['tax_rate'] : 10;
 $lines    = is_array($p['lines']) ? $p['lines'] : json_decode($p['lines'] ?? '[]', true);
 $subtotal = array_reduce($lines, fn($s, $l) => $s + (floatval($l['price'] ?? 0) * floatval($l['qty'] ?? 1)), 0);
-$taxRate  = 10;
 $tax      = round($subtotal * $taxRate / 100);
 $grand    = $subtotal + $tax;
 
-// 自社情報（Supabaseのcompany_settingsテーブルから取得）
+// 自社情報 $co をview用マッピングに変換
 $co = [
-    'name' => '', 'postal' => '', 'address' => '',
-    'tel'  => '', 'fax'    => '', 'email'   => '',
-    'reg'  => '', 'stamp'  => '',
+    'name'    => $companyRows[0]['name']           ?? '',
+    'postal'  => $companyRows[0]['zip']            ?? '',
+    'address' => $companyRows[0]['addr']           ?? '',
+    'tel'     => $companyRows[0]['tel']            ?? '',
+    'fax'     => $companyRows[0]['fax']            ?? '',
+    'email'   => $companyRows[0]['email']          ?? '',
+    'reg'     => $companyRows[0]['reg_no']         ?? '',
+    'stamp'   => $companyRows[0]['stamp_data_url'] ?? '',
 ];
-$sbUrl = getenv('SUPABASE_URL');
-$sbKey = getenv('SUPABASE_ANON_KEY');
-if ($sbUrl && $sbKey) {
-    $apiUrl = rtrim($sbUrl, '/') . '/rest/v1/company_settings?id=eq.1&limit=1';
-    $ch = curl_init($apiUrl);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 3,
-        CURLOPT_HTTPHEADER     => [
-            'apikey: ' . $sbKey,
-            'Authorization: Bearer ' . $sbKey,
-            'Accept: application/json',
-        ],
-    ]);
-    $res = curl_exec($ch);
-    curl_close($ch);
-    if ($res) {
-        $rows = json_decode($res, true);
-        if (!empty($rows[0])) {
-            $r = $rows[0];
-            $co = [
-                'name'    => $r['name']          ?? '',
-                'postal'  => $r['zip']           ?? '',
-                'address' => $r['addr']          ?? '',
-                'tel'     => $r['tel']           ?? '',
-                'fax'     => $r['fax']           ?? '',
-                'email'   => $r['email']         ?? '',
-                'reg'     => $r['reg_no']        ?? '',
-                'stamp'   => $r['stamp_data_url'] ?? '',
-            ];
-        }
-    }
-}
 
 $docTitle = $type === 'estimate' ? '見積書' : '請求書';
 $docNo    = $type === 'estimate' ? ($p['est_no'] ?? '—') : ($p['inv_no'] ?? '—');
@@ -162,7 +139,8 @@ if ($isEst && !in_array($p['status'] ?? '', ['ordered','wip','delivered','invoic
     </div>';
 }
 
-$pdfBtn = '<button onclick="window.print()" style="display:inline-block;background:#1565c0;color:#fff;padding:10px 24px;border-radius:6px;font-size:14px;font-weight:600;border:none;cursor:pointer">📥 PDFダウンロード</button>';
+$docFilename = $docTitle . '_' . ($client['name'] ?? '') . '_' . date('Ymd') . '.pdf';
+$pdfBtn = '<button onclick="downloadPdf()" style="display:inline-block;background:#1565c0;color:#fff;padding:10px 24px;border-radius:6px;font-size:14px;font-weight:600;border:none;cursor:pointer">📥 PDFダウンロード</button>';
 ?>
 <!DOCTYPE html>
 <html lang="ja">
@@ -259,11 +237,45 @@ $pdfBtn = '<button onclick="window.print()" style="display:inline-block;backgrou
     <div class="total-row grand"><span>合計</span><span>¥<?= number_format($grand) ?></span></div>
   </div>
 
+<?php if ($type === 'invoice' && ($coBank || $coAccount)): ?>
+  <div style="margin-top:28px;border:1.5px solid #d0ccc4;border-radius:8px;overflow:hidden">
+    <div style="background:#f0ece4;padding:8px 16px;font-size:12px;font-weight:700;color:#555;letter-spacing:0.05em">お振込先</div>
+    <div style="padding:14px 20px;font-size:14px;line-height:2">
+      <?php if ($coBank):?><div><span style="color:#888;font-size:12px;display:inline-block;width:80px">金融機関</span><strong><?= htmlspecialchars($coBank) ?></strong></div><?php endif;?>
+      <?php if ($coAccount):?><div><span style="color:#888;font-size:12px;display:inline-block;width:80px">口座番号</span><strong><?= htmlspecialchars($coAccount) ?></strong></div><?php endif;?>
+      <?php if ($coHolder):?><div><span style="color:#888;font-size:12px;display:inline-block;width:80px">口座名義</span><strong><?= htmlspecialchars($coHolder) ?></strong></div><?php endif;?>
+    </div>
+  </div>
+<?php endif; ?>
+
   <?= $orderBtn ?>
   <div class="no-print" style="margin-top:32px;padding:20px;border-top:2px solid #e8e4de;text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
     <?= $pdfBtn ?>
     <button onclick="window.close()" style="background:#e8e4de;color:#444;padding:10px 24px;border-radius:6px;font-size:14px;font-weight:600;border:none;cursor:pointer">✕ 閉じる</button>
   </div>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+function downloadPdf() {
+  const btn = document.querySelector('[onclick="downloadPdf()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 生成中...'; }
+
+  const el = document.getElementById('printArea');
+  const opt = {
+    margin:       [8, 8, 8, 8],
+    filename:     '<?= addslashes($docFilename) ?>',
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2, useCORS: true, logging: false },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak:    { mode: ['avoid-all'] }
+  };
+
+  html2pdf().set(opt).from(el).save().then(() => {
+    if (btn) { btn.disabled = false; btn.textContent = '📥 PDFダウンロード'; }
+  }).catch(() => {
+    if (btn) { btn.disabled = false; btn.textContent = '📥 PDFダウンロード'; }
+  });
+}
+</script>
 </body>
 </html>
