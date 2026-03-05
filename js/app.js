@@ -820,7 +820,7 @@ function _updateDomainInvoiceArea(domain) {
 
   // 同クライアントの納品済案件を探す
   const related = (_cache.projects || []).filter(p =>
-    p.client_id === clientId && p.status === 'delivered'
+    p.clientId === clientId && p.status === 'delivered'
   );
 
   area.style.display = '';
@@ -895,7 +895,7 @@ async function createDomainInvoice() {
 
   // 同クライアントの納品済案件
   const relatedProjects = (_cache.projects || []).filter(p =>
-    p.client_id === clientId && p.status === 'delivered'
+    p.clientId === clientId && p.status === 'delivered'
   );
 
   // 請求明細を構築：案件の明細 + ドメイン費用
@@ -1018,9 +1018,9 @@ function _renderBillingClientList() {
   // クライアントIDごとに件数を集計
   const clientMap = {};
   deliveredProjects.forEach(p => {
-    if (!p.client_id) return;
-    if (!clientMap[p.client_id]) clientMap[p.client_id] = { projects: 0, domains: 0 };
-    clientMap[p.client_id].projects++;
+    if (!p.clientId) return;
+    if (!clientMap[p.clientId]) clientMap[p.clientId] = { projects: 0, domains: 0 };
+    clientMap[p.clientId].projects++;
   });
   pendingDomains.forEach(d => {
     if (!d.client_id) return;
@@ -1054,7 +1054,7 @@ function selectBillingClient(clientId) {
   _renderBillingClientList();
 
   const client = getClientById(clientId);
-  const deliveredProjects = (_cache.projects || []).filter(p => p.client_id === clientId && p.status === 'delivered');
+  const deliveredProjects = (_cache.projects || []).filter(p => p.clientId === clientId && p.status === 'delivered');
   const pendingDomains    = (_cache.domains  || []).filter(d => d.client_id === clientId && d.bill_status === 'pending');
 
   document.getElementById('billingRightEmpty').style.display = 'none';
