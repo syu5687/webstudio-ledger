@@ -1225,11 +1225,11 @@ async function createBatchInvoice() {
   // 新規案件として請求書を作成
   const newProj = {
     name:        projName,
-    client_id:   _billingSelectedClientId,
+    clientId:    _billingSelectedClientId,
     status:      'invoiced',
     lines:       lines,
-    inv_no:      invNo,
-    order_route: '手動登録',
+    invNo:       invNo,
+    orderRoute:  '手動登録',
   };
 
   try {
