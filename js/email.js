@@ -291,34 +291,38 @@ function sendByEmail() {
     ? '※上記URLより内容をご確認のうえ、そのままご発注いただけます。'
     : '※上記URLより請求書のご確認・PDFダウンロードが可能です。';
 
-  document.getElementById('mail-body').value =
-`${client.name || ''} 御中
-${client.contact ? client.contact + ' 様' + '\n' : ''}
-いつもお世話になっております。
-${co.name} でございます。
-
-このたびは、${p.name} のご依頼をいただき、誠にありがとうございます。
-
-下記のとおり${isEstimate ? '見積書' : '請求書'}をお送りいたします。
-ご確認のほど、よろしくお願いいたします。
-
-━━━━━━━━━━━━━━━━━━━━━━━
-　案件名　：${p.name}
-　合計金額：¥${grand.toLocaleString()}（税込）
-━━━━━━━━━━━━━━━━━━━━━━━
-
-【${isEstimate ? '見積書' : '請求書'}の閲覧URL】
-${viewUrl}
-${urlNote}
-
-ご不明な点がございましたら、お気軽にご連絡ください。
-今後ともよろしくお願いいたします。
-
-────────────────────────
-${co.name}
-TEL: ${co.tel || ''}
-MAIL: ${co.email || ''}
-────────────────────────`;
+  const NL = '\n';
+  const mailBody = [
+    (client.name || '') + ' 御中',
+    (client.contact ? client.contact + ' 様' : ''),
+    '',
+    'いつもお世話になっております。',
+    (co.name || '') + ' でございます。',
+    '',
+    'このたびは、' + p.name + ' のご依頼をいただき、誠にありがとうございます。',
+    '',
+    '下記のとおり' + (isEstimate ? '見積書' : '請求書') + 'をお送りいたします。',
+    'ご確認のほど、よろしくお願いいたします。',
+    '',
+    '━━━━━━━━━━━━━━━━━━━━━━━',
+    '　案件名　：' + p.name,
+    '　合計金額：¥' + grand.toLocaleString() + '（税込）',
+    '━━━━━━━━━━━━━━━━━━━━━━━',
+    '',
+    '【' + (isEstimate ? '見積書' : '請求書') + 'の閲覧URL】',
+    viewUrl,
+    urlNote,
+    '',
+    'ご不明な点がございましたら、お気軽にご連絡ください。',
+    '今後ともよろしくお願いいたします。',
+    '',
+    '────────────────────────',
+    (co.name || ''),
+    'TEL: ' + (co.tel || ''),
+    'MAIL: ' + (co.email || ''),
+    '────────────────────────',
+  ].join(NL);
+  document.getElementById('mail-body').value = mailBody;
 
   closeModal('invoiceModal');
   setTimeout(() => openModal('emailModal'), 50);
