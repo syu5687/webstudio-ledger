@@ -99,14 +99,14 @@ async function refreshData() {
 
 /* ── VIEW ── */
 function showView(view) {
-  ['ledger','orders','invoice','clients','domains','hostings','monthly','dashboard','own-servers','own-subscriptions','company'].forEach(v => {
+  ['ledger','orders','billing','invoice','clients','domains','hostings','monthly','dashboard','own-servers','own-subscriptions','company'].forEach(v => {
     const el = document.getElementById('view-'+v);
     if (el) el.style.display = v === view ? '' : 'none';
   });
   document.querySelectorAll('.nav-item[data-view]').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
   });
-  const titles = { ledger:'案件台帳', orders:'受注管理', invoice:'見積・請求書', clients:'取引先', domains:'ドメイン管理', hostings:'ホスティング管理', monthly:'月次請求リスト', dashboard:'売上ダッシュボード', board:'カンバンボード', 'own-servers':'サーバー管理', 'own-subscriptions':'サブスク管理', company:'自社情報設定' };
+  const titles = { ledger:'案件台帳', orders:'受注管理', billing:'請求書作成', invoice:'見積・請求書', clients:'取引先', domains:'ドメイン管理', hostings:'ホスティング管理', monthly:'月次請求リスト', dashboard:'売上ダッシュボード', board:'カンバンボード', 'own-servers':'サーバー管理', 'own-subscriptions':'サブスク管理', company:'自社情報設定' };
   document.getElementById('pageTitle').textContent = titles[view] || '';
   document.getElementById('newProjectBtn').style.display = view === 'ledger' ? '' : 'none';
   if (view === 'orders') renderOrdersTable();
@@ -118,6 +118,7 @@ function showView(view) {
   if (view === 'board') renderBoard();
   if (view === 'own-servers') renderOwnServers();
   if (view === 'own-subscriptions') renderOwnSubscriptions();
+  if (view === 'billing') renderBillingView();
 }
 
 /* ── KPI ── */
@@ -966,6 +967,211 @@ async function createDomainInvoice() {
   }
 }
 let _domainInvoiceMerge = null;
+
+/* ============================================================
+   BILLING VIEW — 請求書作成専用画面
+   ============================================================ */
+let _billingSelectedClientId = null;
+
+function renderBillingView() {
+  _billingSelectedClientId = null;
+  _renderBillingClientList();
+  document.getElementById('billingRightEmpty').style.display = 'flex';
+  document.getElementById('billingRightContent').style.display = 'none';
+}
+
+function _renderBillingClientList() {
+  const el = document.getElementById('billingClientList');
+  if (!el) return;
+
+  // 請求可能な案件・ドメインをクライアント別に集計
+  const deliveredProjects = (_cache.projects || []).filter(p => p.status === 'delivered');
+  const pendingDomains    = (_cache.domains  || []).filter(d => d.bill_status === 'pending');
+
+  // クライアントIDごとに件数を集計
+  const clientMap = {};
+  deliveredProjects.forEach(p => {
+    if (!p.client_id) return;
+    if (!clientMap[p.client_id]) clientMap[p.client_id] = { projects: 0, domains: 0 };
+    clientMap[p.client_id].projects++;
+  });
+  pendingDomains.forEach(d => {
+    if (!d.client_id) return;
+    if (!clientMap[d.client_id]) clientMap[d.client_id] = { projects: 0, domains: 0 };
+    clientMap[d.client_id].domains++;
+  });
+
+  const clientIds = Object.keys(clientMap);
+  if (clientIds.length === 0) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">請求可能な案件・<br>ドメインがありません</div>';
+    return;
+  }
+
+  el.innerHTML = clientIds.map(cid => {
+    const client = getClientById(cid);
+    if (!client) return '';
+    const cnt = clientMap[cid];
+    const badges = [];
+    if (cnt.projects > 0) badges.push(`<span style="background:#2e8b57;color:#fff;padding:1px 6px;border-radius:10px;font-size:10px">案件 ${cnt.projects}</span>`);
+    if (cnt.domains  > 0) badges.push(`<span style="background:#1976d2;color:#fff;padding:1px 6px;border-radius:10px;font-size:10px">ドメイン ${cnt.domains}</span>`);
+    const isSelected = cid === _billingSelectedClientId;
+    return `<div onclick="selectBillingClient('${cid}')" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border);${isSelected ? 'background:var(--accent2-light, rgba(99,179,237,0.1));border-left:3px solid var(--accent2)' : 'border-left:3px solid transparent'}">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">${client.name}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${badges.join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectBillingClient(clientId) {
+  _billingSelectedClientId = clientId;
+  _renderBillingClientList();
+
+  const client = getClientById(clientId);
+  const deliveredProjects = (_cache.projects || []).filter(p => p.client_id === clientId && p.status === 'delivered');
+  const pendingDomains    = (_cache.domains  || []).filter(d => d.client_id === clientId && d.bill_status === 'pending');
+
+  document.getElementById('billingRightEmpty').style.display = 'none';
+  document.getElementById('billingRightContent').style.display = 'flex';
+  document.getElementById('billingClientName').textContent = client?.name || '';
+  document.getElementById('billingClientSub').textContent =
+    `納品済案件 ${deliveredProjects.length}件　請求予定ドメイン ${pendingDomains.length}件`;
+
+  // 案件一覧
+  const projEl = document.getElementById('billingProjectsList');
+  if (deliveredProjects.length === 0) {
+    projEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:4px 0">なし</div>';
+  } else {
+    projEl.innerHTML = deliveredProjects.map(p => {
+      const sub = (p.lines || []).reduce((s, l) => s + floatval(l.price) * floatval(l.qty), 0);
+      const tax = Math.round(sub * 0.1);
+      return `<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface3);border-radius:8px;margin-bottom:6px;cursor:pointer;border:1px solid var(--border)">
+        <input type="checkbox" class="billing-proj-check" data-id="${p.id}" checked style="margin-top:2px;flex-shrink:0" onchange="updateBillingTotal()">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${p.name}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${(p.lines||[]).map(l=>l.name).join(' / ') || '明細なし'}</div>
+        </div>
+        <div style="font-size:13px;font-weight:600;font-family:monospace;white-space:nowrap">¥${(sub+tax).toLocaleString()}</div>
+      </label>`;
+    }).join('');
+  }
+
+  // ドメイン一覧
+  const domEl = document.getElementById('billingDomainsList');
+  if (pendingDomains.length === 0) {
+    domEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:4px 0">なし</div>';
+  } else {
+    domEl.innerHTML = pendingDomains.map(d => {
+      return `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface3);border-radius:8px;margin-bottom:6px;cursor:pointer;border:1px solid var(--border)">
+        <input type="checkbox" class="billing-domain-check" data-id="${d.id}" checked style="flex-shrink:0" onchange="updateBillingTotal()">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${d.domain_name}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">ドメイン更新費　${d.billing_month ? d.billing_month+'月請求' : ''}</div>
+        </div>
+        <div style="font-size:13px;font-weight:600;font-family:monospace;white-space:nowrap">${d.price ? '¥'+Number(d.price).toLocaleString() : '金額未設定'}</div>
+      </label>`;
+    }).join('');
+  }
+
+  updateBillingTotal();
+}
+
+function floatval(v) { return parseFloat(v) || 0; }
+
+function updateBillingTotal() {
+  let subtotal = 0;
+
+  // チェック済み案件の合計
+  document.querySelectorAll('.billing-proj-check:checked').forEach(cb => {
+    const proj = (_cache.projects || []).find(p => p.id === cb.dataset.id);
+    if (proj) subtotal += (proj.lines || []).reduce((s, l) => s + floatval(l.price) * floatval(l.qty), 0);
+  });
+
+  // チェック済みドメインの合計
+  document.querySelectorAll('.billing-domain-check:checked').forEach(cb => {
+    const dom = (_cache.domains || []).find(d => d.id === cb.dataset.id);
+    if (dom && dom.price) subtotal += Number(dom.price);
+  });
+
+  const tax   = Math.round(subtotal * 0.1);
+  const grand = subtotal + tax;
+  document.getElementById('billingSubtotal').textContent = '¥' + subtotal.toLocaleString();
+  document.getElementById('billingTax').textContent      = '¥' + tax.toLocaleString();
+  document.getElementById('billingGrand').textContent    = '¥' + grand.toLocaleString();
+}
+
+async function createBatchInvoice() {
+  if (!_billingSelectedClientId) return;
+
+  // チェック済み案件・ドメインを収集
+  const checkedProjIds   = [...document.querySelectorAll('.billing-proj-check:checked')].map(c => c.dataset.id);
+  const checkedDomainIds = [...document.querySelectorAll('.billing-domain-check:checked')].map(c => c.dataset.id);
+
+  if (checkedProjIds.length === 0 && checkedDomainIds.length === 0) {
+    toast('請求対象を選択してください', '⚠️'); return;
+  }
+
+  // 明細を構築
+  const lines = [];
+  checkedProjIds.forEach(pid => {
+    const proj = (_cache.projects || []).find(p => p.id === pid);
+    if (proj) (proj.lines || []).forEach(l => lines.push({ ...l }));
+  });
+  checkedDomainIds.forEach(did => {
+    const dom = (_cache.domains || []).find(d => d.id === did);
+    if (dom && dom.price) {
+      lines.push({ name: `ドメイン更新費（${dom.domain_name}）`, qty: 1, unit: '年', price: Number(dom.price) });
+    }
+  });
+
+  if (lines.length === 0) { toast('明細がありません。各項目に金額を設定してください', '⚠️'); return; }
+
+  const client = getClientById(_billingSelectedClientId);
+  const now = new Date();
+  const invNo = `INV-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+  // 新規案件として請求書を作成
+  const newProj = {
+    name:        checkedProjIds.length > 0
+      ? ((_cache.projects||[]).find(p=>p.id===checkedProjIds[0])?.name || '請求書') + (checkedProjIds.length > 1 ? ` 他${checkedProjIds.length-1}件` : '') + (checkedDomainIds.length > 0 ? '＋ドメイン' : '')
+      : `ドメイン更新（${checkedDomainIds.map(did => (_cache.domains||[]).find(d=>d.id===did)?.domain_name).join('・')}）`,
+    client_id:   _billingSelectedClientId,
+    status:      'invoiced',
+    lines:       lines,
+    inv_no:      invNo,
+    order_route: '手動登録',
+  };
+
+  try {
+    const saved = await dbSaveProject(newProj);
+    if (!saved?.id) throw new Error('保存失敗');
+    _cache.projects.unshift(saved);
+    renderTable(); updateKPI();
+
+    // 請求済にする対象案件のステータスを更新
+    for (const pid of checkedProjIds) {
+      await dbUpdateProject(pid, { status: 'invoiced' });
+      const idx = (_cache.projects||[]).findIndex(p => p.id === pid);
+      if (idx >= 0) _cache.projects[idx].status = 'invoiced';
+    }
+
+    // ドメインのステータスを「請求済」に更新
+    for (const did of checkedDomainIds) {
+      await dbSaveDomain({ id: did, bill_status: 'invoiced' });
+      const idx = (_cache.domains||[]).findIndex(d => d.id === did);
+      if (idx >= 0) _cache.domains[idx].bill_status = 'invoiced';
+    }
+
+    toast('請求書を作成しました', '✅', 'success');
+    openEditProject(saved.id);
+    setTimeout(() => switchTab('project', 'estimate'), 200);
+
+    // billingビューを再描画
+    renderBillingView();
+
+  } catch(e) {
+    toast('作成エラー: ' + (e.message || e), '❌', 'error');
+  }
+}
 
 /* ============================================================
    HOSTING MANAGEMENT
