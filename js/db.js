@@ -53,6 +53,7 @@ let _cache = {
   clients: [],
   domains: [],
   hostings: [],
+  expenses: [],
   lastFetch: null,
 };
 
@@ -327,6 +328,7 @@ function normalizeProject(row) {
     invNo: row.inv_no,
     invDate: row.inv_date || null,
     lines: row.lines || [],
+    costLines: row.cost_lines || [],
     orderRoute: row.order_route || '手動登録',
     orderedAt: row.ordered_at,
     isNewOrder: row.is_new_order || false,
@@ -355,6 +357,7 @@ function denormalizeProject(p) {
     inv_no: p.invNo || null,
     inv_date: p.invDate || null,
     lines: p.lines || [],
+    cost_lines: p.costLines || [],
     order_route: p.orderRoute || '手動登録',
     ordered_at: p.orderedAt || null,
     is_new_order: p.isNewOrder || false,
@@ -501,4 +504,57 @@ async function dbDeleteHosting(id) {
     _cache.hostings = (_cache.hostings||[]).filter(h => h.id !== id);
     return true;
   } catch(e) { console.error('ホスティング削除エラー:', e); throw e; }
+}
+
+/* ============================================================
+   EXPENSES — 月次経費
+   ============================================================ */
+async function dbLoadExpenses() {
+  if (!isDbReady()) return _cache.expenses || [];
+  try {
+    const { data, error } = await _supabase
+      .from('expenses')
+      .select('*')
+      .order('expense_date', { ascending: false });
+    if (error) throw error;
+    _cache.expenses = data || [];
+    return _cache.expenses;
+  } catch(e) { console.error('経費取得エラー:', e); return _cache.expenses || []; }
+}
+
+async function dbSaveExpense(data) {
+  if (!isDbReady()) {
+    if (!_cache.expenses) _cache.expenses = [];
+    if (data.id) {
+      const idx = _cache.expenses.findIndex(e => e.id === data.id);
+      if (idx >= 0) _cache.expenses[idx] = data;
+    } else { _cache.expenses.unshift({ ...data, id: 'local-' + Date.now() }); }
+    return data;
+  }
+  try {
+    if (data.id && !String(data.id).startsWith('local-')) {
+      const { id, created_at, ...upd } = data;
+      const { data: d, error } = await _supabase.from('expenses').update(upd).eq('id', id).select().single();
+      if (error) throw error;
+      return d;
+    } else {
+      const { id, created_at, ...ins } = data;
+      const { data: d, error } = await _supabase.from('expenses').insert(ins).select().single();
+      if (error) throw error;
+      return d;
+    }
+  } catch(e) { console.error('経費保存エラー:', e); throw e; }
+}
+
+async function dbDeleteExpense(id) {
+  if (!isDbReady()) {
+    _cache.expenses = (_cache.expenses||[]).filter(e => e.id !== id);
+    return true;
+  }
+  try {
+    const { error } = await _supabase.from('expenses').delete().eq('id', id);
+    if (error) throw error;
+    _cache.expenses = (_cache.expenses||[]).filter(e => e.id !== id);
+    return true;
+  } catch(e) { console.error('経費削除エラー:', e); throw e; }
 }

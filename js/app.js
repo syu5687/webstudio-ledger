@@ -88,7 +88,7 @@ function hideLoading() {
 }
 
 async function refreshData() {
-  await Promise.all([dbFetchProjects(), dbFetchClients(), dbFetchDomains(), dbFetchHostings()]);
+  await Promise.all([dbFetchProjects(), dbFetchClients(), dbFetchDomains(), dbFetchHostings(), dbLoadExpenses()]);
   renderTable();
   updateKPI();
   updateOrderBadge();
@@ -116,6 +116,7 @@ function showView(view) {
   if (view === 'hostings') renderHostings();
   if (view === 'monthly') renderMonthly();
   if (view === 'dashboard') renderDashboard();
+  if (view === 'expenses') renderExpenses();
   if (view === 'board') renderBoard();
   if (view === 'own-servers') renderOwnServers();
   if (view === 'own-subscriptions') renderOwnSubscriptions();
@@ -438,6 +439,9 @@ function openEditProject(id) {
   }
 
   calcTotals();
+  clearCostLineItems();
+  (p.costLines || []).forEach(l => addCostLineItem(l));
+  updateCostSummary();
   updateStatusFlow(p.status);
   switchTab('project','info');
   openModal('projectModal');
@@ -469,6 +473,7 @@ async function saveProject() {
       invNo:    document.getElementById('p-inv-no')?.value,
       invDate:  document.getElementById('p-inv-date')?.value || null,
       lines: collectLines(),
+      costLines: collectCostLines(),
       orderRoute: window._editingProjectId ?
         (_cache.projects.find(p => p.id === window._editingProjectId)?.orderRoute || '手動登録') :
         '手動登録',
@@ -2073,4 +2078,242 @@ async function onColDrop(e, newStatus) {
     toast('更新に失敗しました', '❌');
   }
   _dragCardId = null;
+}
+
+/* ============================================================
+   原価明細（案件モーダル 原価タブ）
+   ============================================================ */
+const COST_CATEGORIES = ['外注費','素材費','ソフトウェア','交通費','その他'];
+
+function clearCostLineItems() {
+  document.getElementById('costLineItems').innerHTML = '';
+}
+
+function addCostLineItem(data = {}) {
+  const tbody = document.getElementById('costLineItems');
+  if (!tbody) return;
+  const tr = document.createElement('tr');
+  const catOpts = COST_CATEGORIES.map(c =>
+    `<option${data.category === c ? ' selected' : ''}>${c}</option>`).join('');
+  tr.innerHTML = `
+    <td><input class="form-control" style="width:100%" placeholder="外注デザイン費" value="${data.name||''}" data-field="name"></td>
+    <td><input class="form-control" style="width:100%" placeholder="○○制作所" value="${data.vendor||''}" data-field="vendor"></td>
+    <td><input class="form-control" type="number" style="width:100%" placeholder="30000" value="${data.amount||''}" data-field="amount" oninput="updateCostSummary()"></td>
+    <td><select class="form-control" data-field="category"><option value="">-</option>${catOpts}</select></td>
+    <td><button onclick="this.closest('tr').remove();updateCostSummary()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px">×</button></td>`;
+  tbody.appendChild(tr);
+  updateCostSummary();
+}
+
+function collectCostLines() {
+  const rows = document.querySelectorAll('#costLineItems tr');
+  return Array.from(rows).map(tr => ({
+    name:     tr.querySelector('[data-field="name"]')?.value || '',
+    vendor:   tr.querySelector('[data-field="vendor"]')?.value || '',
+    amount:   parseFloat(tr.querySelector('[data-field="amount"]')?.value) || 0,
+    category: tr.querySelector('[data-field="category"]')?.value || '',
+  })).filter(r => r.name || r.amount);
+}
+
+function updateCostSummary() {
+  const el = document.getElementById('costSummary');
+  if (!el) return;
+  const costLines = collectCostLines();
+  const totalCost = costLines.reduce((s, l) => s + (l.amount || 0), 0);
+
+  // 売上合計（税抜）
+  const salesLines = collectLines();
+  const totalSales = salesLines.reduce((s, l) => s + (floatval(l.price) * floatval(l.qty)), 0);
+
+  const grossProfit = totalSales - totalCost;
+  const margin = totalSales > 0 ? Math.round(grossProfit / totalSales * 100) : 0;
+  const marginColor = margin >= 50 ? '#2e8b57' : margin >= 30 ? '#f59e0b' : '#e53e3e';
+
+  el.innerHTML = `
+    <div style="background:var(--surface3);border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">売上（税抜）</div>
+      <div style="font-size:18px;font-weight:700">¥${totalSales.toLocaleString()}</div>
+    </div>
+    <div style="background:var(--surface3);border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">原価合計</div>
+      <div style="font-size:18px;font-weight:700;color:#e53e3e">¥${totalCost.toLocaleString()}</div>
+    </div>
+    <div style="background:var(--surface3);border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">粗利（粗利率）</div>
+      <div style="font-size:18px;font-weight:700;color:${marginColor}">¥${grossProfit.toLocaleString()} <span style="font-size:13px">(${margin}%)</span></div>
+    </div>`;
+}
+
+/* ============================================================
+   経費管理
+   ============================================================ */
+let _editingExpenseId = null;
+let _expenseChart = null;
+
+function renderExpenses() {
+  const expenses = _cache.expenses || [];
+  const search   = (document.getElementById('expenseSearch')?.value || '').toLowerCase();
+  const month    = document.getElementById('expenseMonthFilter')?.value || '';
+  const cat      = document.getElementById('expenseCategoryFilter')?.value || '';
+
+  // 月フィルターの選択肢を更新
+  const monthSet = new Set(expenses.map(e => (e.expense_date||'').slice(0,7)).filter(Boolean));
+  const mSel = document.getElementById('expenseMonthFilter');
+  if (mSel) {
+    const cur = mSel.value;
+    mSel.innerHTML = '<option value="">全期間</option>' +
+      [...monthSet].sort().reverse().map(m => `<option value="${m}"${m===cur?' selected':''}>${m.replace('-','年')}月</option>`).join('');
+  }
+
+  const filtered = expenses.filter(e => {
+    if (month && !(e.expense_date||'').startsWith(month)) return false;
+    if (cat && e.category !== cat) return false;
+    if (search && !(e.description||'').toLowerCase().includes(search) && !(e.vendor||'').toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  // KPI
+  const total = filtered.reduce((s, e) => s + (e.amount||0), 0);
+  const thisM = new Date().toISOString().slice(0,7);
+  const thisMonthTotal = expenses.filter(e => (e.expense_date||'').startsWith(thisM)).reduce((s, e) => s + (e.amount||0), 0);
+  const catMap = {};
+  filtered.forEach(e => { catMap[e.category||'その他'] = (catMap[e.category||'その他']||0) + (e.amount||0); });
+  const topCat = Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
+
+  document.getElementById('expenseKPI').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">絞込合計</div><div class="kpi-count" style="font-size:20px">¥${total.toLocaleString()}</div></div>
+    <div class="kpi-card"><div class="kpi-label">今月の経費</div><div class="kpi-count" style="font-size:20px">¥${thisMonthTotal.toLocaleString()}</div></div>
+    <div class="kpi-card"><div class="kpi-label">件数</div><div class="kpi-count">${filtered.length}</div></div>
+    <div class="kpi-card"><div class="kpi-label">最多カテゴリ</div><div class="kpi-count" style="font-size:16px">${topCat ? topCat[0] : '-'}</div></div>`;
+
+  // カテゴリ別内訳
+  const catBreak = document.getElementById('expenseCategoryBreakdown');
+  if (catBreak) {
+    const sorted = Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+    catBreak.innerHTML = sorted.map(([c, amt]) => {
+      const pct = total > 0 ? Math.round(amt/total*100) : 0;
+      return `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+          <span>${c}</span><span style="font-weight:600">¥${amt.toLocaleString()} (${pct}%)</span>
+        </div>
+        <div style="background:var(--border);border-radius:4px;height:6px">
+          <div style="background:var(--accent2);border-radius:4px;height:6px;width:${pct}%"></div>
+        </div>
+      </div>`;
+    }).join('') || '<div style="color:var(--muted);font-size:13px">データなし</div>';
+  }
+
+  // 月別グラフ
+  const monthlyMap = {};
+  expenses.forEach(e => {
+    const m = (e.expense_date||'').slice(0,7);
+    if (m) monthlyMap[m] = (monthlyMap[m]||0) + (e.amount||0);
+  });
+  const months = Object.keys(monthlyMap).sort().slice(-6);
+  const ctx = document.getElementById('expenseChart');
+  if (ctx) {
+    if (_expenseChart) _expenseChart.destroy();
+    _expenseChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: months.map(m => m.replace('-','/')),
+        datasets: [{ label: '経費', data: months.map(m => monthlyMap[m]||0),
+          backgroundColor: '#fc8181', borderRadius: 4 }]
+      },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true,
+        ticks: { callback: v => '¥'+v.toLocaleString() } } } }
+    });
+  }
+
+  // テーブル
+  const tbody = document.getElementById('expenseTableBody');
+  if (!tbody) return;
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">経費データがありません</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.sort((a,b)=>(b.expense_date||'').localeCompare(a.expense_date||'')).map(e => `
+    <tr style="cursor:pointer" onclick="openExpenseModal('${e.id}')">
+      <td>${e.expense_date||''}</td>
+      <td><span style="background:var(--surface3);padding:2px 8px;border-radius:10px;font-size:11px">${e.category||'-'}</span></td>
+      <td>${e.description||''}</td>
+      <td style="color:var(--muted)">${e.vendor||''}</td>
+      <td style="text-align:right;font-weight:600;font-family:monospace">¥${(e.amount||0).toLocaleString()}</td>
+      <td style="color:var(--muted);font-size:12px">${e.memo||''}</td>
+      <td></td>
+    </tr>`).join('');
+}
+
+function openExpenseModal(id) {
+  _editingExpenseId = id || null;
+  const isNew = !id;
+  document.getElementById('expenseModalTitle').textContent = isNew ? '経費追加' : '経費編集';
+  document.getElementById('deleteExpenseBtn').style.display = isNew ? 'none' : 'inline-flex';
+
+  if (isNew) {
+    document.getElementById('exp-date').value     = new Date().toISOString().slice(0,10);
+    document.getElementById('exp-category').value = '';
+    document.getElementById('exp-desc').value     = '';
+    document.getElementById('exp-vendor').value   = '';
+    document.getElementById('exp-amount').value   = '';
+    document.getElementById('exp-memo').value     = '';
+  } else {
+    const e = (_cache.expenses||[]).find(x => x.id === id);
+    if (!e) return;
+    document.getElementById('exp-date').value     = e.expense_date || '';
+    document.getElementById('exp-category').value = e.category || '';
+    document.getElementById('exp-desc').value     = e.description || '';
+    document.getElementById('exp-vendor').value   = e.vendor || '';
+    document.getElementById('exp-amount').value   = e.amount || '';
+    document.getElementById('exp-memo').value     = e.memo || '';
+  }
+  openModal('expenseModal');
+}
+
+async function saveExpense() {
+  const desc = document.getElementById('exp-desc')?.value?.trim();
+  const amt  = parseFloat(document.getElementById('exp-amount')?.value);
+  const cat  = document.getElementById('exp-category')?.value;
+  if (!desc) { toast('内容を入力してください', '⚠️'); return; }
+  if (!amt || amt <= 0) { toast('金額を入力してください', '⚠️'); return; }
+  if (!cat) { toast('カテゴリを選択してください', '⚠️'); return; }
+
+  const data = {
+    id:           _editingExpenseId || undefined,
+    expense_date: document.getElementById('exp-date')?.value,
+    category:     cat,
+    description:  desc,
+    vendor:       document.getElementById('exp-vendor')?.value || '',
+    amount:       amt,
+    memo:         document.getElementById('exp-memo')?.value || '',
+  };
+
+  try {
+    const saved = await dbSaveExpense(data);
+    if (_editingExpenseId) {
+      const idx = (_cache.expenses||[]).findIndex(e => e.id === _editingExpenseId);
+      if (idx >= 0) _cache.expenses[idx] = saved;
+    } else {
+      if (!_cache.expenses) _cache.expenses = [];
+      _cache.expenses.unshift(saved);
+    }
+    closeModal('expenseModal');
+    renderExpenses();
+    toast(_editingExpenseId ? '経費を更新しました' : '経費を追加しました', '✅', 'success');
+  } catch(e) {
+    toast('保存エラー: ' + (e.message || e), '❌', 'error');
+  }
+}
+
+async function deleteExpense() {
+  if (!_editingExpenseId) return;
+  if (!confirm('この経費を削除しますか？')) return;
+  try {
+    await dbDeleteExpense(_editingExpenseId);
+    closeModal('expenseModal');
+    renderExpenses();
+    toast('削除しました', '✅', 'success');
+  } catch(e) {
+    toast('削除エラー: ' + (e.message || e), '❌', 'error');
+  }
 }
