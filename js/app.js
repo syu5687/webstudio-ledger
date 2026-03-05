@@ -58,6 +58,7 @@ async function init() {
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
         ]);
         await loadCompanyFromDB();  // 自社情報をSupabaseから取得
+        await autoUpdateDomainBillStatus();  // 請求月チェック→自動「請求予定」化
         renderTable(); updateKPI(); updateOrderBadge(); renderClients(); renderInvoiceList(); populateYearFilter();
         subscribeToOrders((p) => {
           toast(`🎉 新受注！「${p.name}」`, '🎉', 'success');
@@ -804,9 +805,7 @@ function openDomainModal(id) {
   document.getElementById('dm-price').value       = domain?.price         || '';
   document.getElementById('dm-bill-status').value = domain?.bill_status   || '';
 
-  // 請求書作成エリア（請求予定 かつ クライアント設定済みの場合に表示）
-  _updateDomainInvoiceArea(domain);
-
+  // 請求書作成エリアは請求書作成専用画面に統合したため削除
   openModal('domainModal');
 }
 
@@ -967,6 +966,34 @@ async function createDomainInvoice() {
   }
 }
 let _domainInvoiceMerge = null;
+
+/* ============================================================
+   DOMAIN AUTO BILL STATUS
+   起動時に請求月 = 今月のドメインを自動で「請求予定」にする
+   ============================================================ */
+async function autoUpdateDomainBillStatus() {
+  const thisMonth = new Date().getMonth() + 1;
+  const targets = (_cache.domains || []).filter(d =>
+    d.billing_month === thisMonth &&
+    (!d.bill_status || d.bill_status === '')  // 未設定のみ対象（請求済・入金済は変更しない）
+  );
+  if (targets.length === 0) return;
+
+  let updated = 0;
+  for (const d of targets) {
+    try {
+      await dbSaveDomain({ ...d, bill_status: 'pending' });
+      const idx = (_cache.domains || []).findIndex(x => x.id === d.id);
+      if (idx >= 0) _cache.domains[idx].bill_status = 'pending';
+      updated++;
+    } catch(e) {
+      console.warn('ドメイン自動更新エラー:', d.domain_name, e);
+    }
+  }
+  if (updated > 0) {
+    toast(`${updated}件のドメインを「請求予定」に更新しました`, '🌐');
+  }
+}
 
 /* ============================================================
    BILLING VIEW — 請求書作成専用画面
