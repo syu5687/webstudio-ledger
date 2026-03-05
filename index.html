@@ -82,7 +82,7 @@
     <div class="topbar">
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-0827</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-0905</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -678,9 +678,16 @@
         <div class="form-group form-full"><label class="form-label">本文（編集可）</label>
           <textarea class="form-control" id="mail-body" style="min-height:240px;line-height:1.9"></textarea>
         </div>
+        <div class="form-group form-full">
+          <label class="form-label">閲覧URL（本文に自動挿入されます）</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="form-control" id="mail-view-url" readonly style="font-size:12px;color:var(--muted);background:var(--surface)">
+            <button class="btn btn-outline btn-sm" onclick="copyViewUrl()" style="white-space:nowrap;flex-shrink:0">📋 コピー</button>
+          </div>
+        </div>
         <div class="form-group form-full" style="flex-direction:row;align-items:center;gap:8px">
           <input type="checkbox" id="mail-include-link" checked>
-          <label for="mail-include-link" style="font-size:13px;cursor:pointer">見積書の受注リンクを本文に含める</label>
+          <label for="mail-include-link" style="font-size:13px;cursor:pointer">閲覧URLを本文に含める</label>
         </div>
       </div>
     </div>

@@ -36,11 +36,11 @@ async function sendEmail({ to, cc, subject, html, text }) {
   if (cc) payload.cc = [cc];
 
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    // Cloud Run上のPHPプロキシ経由（CORSブロック回避）
+    const res = await fetch('/api/send-email.php', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify(payload),
     });
@@ -262,16 +262,25 @@ function sendByEmail() {
   const warn = document.getElementById('emailConfigWarning');
   if (warn) warn.style.display = window.CFG.resendApiKey ? 'none' : 'block';
 
-  document.getElementById('mail-to').value = client.email || '';
-  document.getElementById('mail-cc').value = co.email || '';
-  document.getElementById('mail-subject').value = `【${isEstimate ? '見積書' : '請求書'}送付】${p.name}`;
+  // 閲覧URL生成
+  const baseUrl = window.location.origin;
+  const viewUrl = `${baseUrl}/api/view.php?type=${isEstimate ? 'estimate' : 'invoice'}&id=${p.id}`;
 
-  const sub = calcSubtotal(p.lines);
+  document.getElementById('mail-to').value      = client.email || '';
+  document.getElementById('mail-cc').value      = co.email || '';
+  document.getElementById('mail-subject').value = `【${isEstimate ? '見積書' : '請求書'}送付】${p.name}`;
+  document.getElementById('mail-view-url').value = viewUrl;
+
+  const sub   = calcSubtotal(p.lines);
   const grand = sub + Math.round(sub * (Number(co.taxRate) || 10) / 100);
+  const urlNote = isEstimate
+    ? '※上記URLより内容をご確認のうえ、そのままご発注いただけます。'
+    : '※上記URLより請求書のご確認・PDFダウンロードが可能です。';
 
   document.getElementById('mail-body').value =
 `${client.name || ''} 御中
-${client.contact ? client.contact + ' 様\n' : ''}
+${client.contact ? client.contact + ' 様
+' : ''}
 いつもお世話になっております。
 ${co.name} でございます。
 
@@ -285,6 +294,10 @@ ${co.name} でございます。
 　合計金額：¥${grand.toLocaleString()}（税込）
 ━━━━━━━━━━━━━━━━━━━━━━━
 
+【${isEstimate ? '見積書' : '請求書'}の閲覧URL】
+${viewUrl}
+${urlNote}
+
 ご不明な点がございましたら、お気軽にご連絡ください。
 今後ともよろしくお願いいたします。
 
@@ -296,6 +309,14 @@ MAIL: ${co.email || ''}
 
   closeModal('invoiceModal');
   openModal('emailModal');
+}
+
+function copyViewUrl() {
+  const el = document.getElementById('mail-view-url');
+  if (!el || !el.value) return;
+  navigator.clipboard.writeText(el.value).then(() => {
+    toast('URLをコピーしました', '📋', 'success');
+  });
 }
 
 async function executeSendEmail() {

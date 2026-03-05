@@ -180,6 +180,7 @@ function renderTable() {
       </td>
       <td>${statusBadge(p.status)}</td>
       <td style="font-size:13px">${fmtDate(p.orderDate)}</td>
+      <td style="font-size:11px">${openedBadge(p)}</td>
       <td style="font-size:13px;${due ? 'color:var(--accent);font-weight:600' : ''}">${fmtDate(p.dueDate)}${due ? ' ⚠' : ''}</td>
       <td class="amount">¥${sub.toLocaleString()}</td>
       <td>
@@ -210,6 +211,13 @@ function statusBadge(s) {
     domain_renewal:'ドメイン更新',
   };
   return `<span class="badge badge-${s}">${map[s] || s}</span>`;
+}
+
+function openedBadge(p) {
+  let b = '';
+  if (p.estOpenedAt) b += '<span style="background:#e3f2fd;color:#1565c0;padding:1px 5px;border-radius:3px;font-size:10px;margin-right:2px" title="' + fmtDatetime(p.estOpenedAt) + '">見積開封✓</span>';
+  if (p.invOpenedAt) b += '<span style="background:#f3e5f5;color:#6a1b9a;padding:1px 5px;border-radius:3px;font-size:10px" title="' + fmtDatetime(p.invOpenedAt) + '">請求開封✓</span>';
+  return b || '<span style="color:#ccc;font-size:10px">—</span>';
 }
 
 function filterByStatus(status) {

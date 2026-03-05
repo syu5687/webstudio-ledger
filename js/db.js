@@ -329,6 +329,8 @@ function normalizeProject(row) {
     orderedAt: row.ordered_at,
     isNewOrder: row.is_new_order || false,
     alreadyOrdered: row.already_ordered || false,
+    estOpenedAt: row.est_opened_at || null,
+    invOpenedAt: row.inv_opened_at || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
