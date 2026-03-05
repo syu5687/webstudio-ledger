@@ -101,14 +101,14 @@ async function refreshData() {
 
 /* ── VIEW ── */
 function showView(view) {
-  ['ledger','orders','invoice','clients','domains','hostings','monthly','dashboard','company'].forEach(v => {
+  ['ledger','orders','invoice','clients','domains','hostings','monthly','dashboard','own-servers','own-subscriptions','company'].forEach(v => {
     const el = document.getElementById('view-'+v);
     if (el) el.style.display = v === view ? '' : 'none';
   });
   document.querySelectorAll('.nav-item[data-view]').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
   });
-  const titles = { ledger:'案件台帳', orders:'受注管理', invoice:'見積・請求書', clients:'取引先', domains:'ドメイン管理', hostings:'ホスティング管理', monthly:'月次請求リスト', dashboard:'売上ダッシュボード', company:'自社情報設定' };
+  const titles = { ledger:'案件台帳', orders:'受注管理', invoice:'見積・請求書', clients:'取引先', domains:'ドメイン管理', hostings:'ホスティング管理', monthly:'月次請求リスト', dashboard:'売上ダッシュボード', 'own-servers':'サーバー管理', 'own-subscriptions':'サブスク管理', company:'自社情報設定' };
   document.getElementById('pageTitle').textContent = titles[view] || '';
   document.getElementById('newProjectBtn').style.display = view === 'ledger' ? '' : 'none';
   if (view === 'orders') renderOrdersTable();
@@ -117,6 +117,8 @@ function showView(view) {
   if (view === 'hostings') renderHostings();
   if (view === 'monthly') renderMonthly();
   if (view === 'dashboard') renderDashboard();
+  if (view === 'own-servers') renderOwnServers();
+  if (view === 'own-subscriptions') renderOwnSubscriptions();
 }
 
 /* ── KPI ── */
@@ -1099,3 +1101,234 @@ function calcTotal(lines) {
   if (!lines || !Array.isArray(lines)) return 0;
   return lines.reduce((s, l) => s + (Number(l.price || l.unitPrice || 0) * Number(l.qty || l.quantity || 1)), 0);
 }
+
+/* ============================================================
+   OWN SERVER MANAGEMENT（自社サーバー管理）
+   ============================================================ */
+if (!_cache.ownServers)       _cache.ownServers = [];
+if (!_cache.ownSubscriptions) _cache.ownSubscriptions = [];
+
+let _editingOwnServerId = null;
+
+function renderOwnServers() {
+  const search = (document.getElementById('ownServerSearch')?.value || '').toLowerCase();
+  const tbody = document.getElementById('ownServerTableBody');
+  if (!tbody) return;
+
+  let items = _cache.ownServers || [];
+  if (search) items = items.filter(s =>
+    s.name?.toLowerCase().includes(search) ||
+    s.purpose?.toLowerCase().includes(search)
+  );
+
+  const now = new Date();
+  const thisMonth = now.getMonth() + 1;
+  const nextMonth = thisMonth === 12 ? 1 : thisMonth + 1;
+  const urgent = (_cache.ownServers || []).filter(s => s.renewal_month === thisMonth || s.renewal_month === nextMonth);
+  const alertEl = document.getElementById('ownServerAlert');
+  if (alertEl) {
+    alertEl.style.display = urgent.length > 0 ? '' : 'none';
+    if (urgent.length > 0) alertEl.innerHTML = `⚠️ 更新が近いサーバー: ${urgent.map(s => `<strong>${s.name}</strong>（${s.renewal_month}月）`).join('、')}`;
+  }
+
+  if (items.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:32px">サーバーが登録されていません</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = items.map(s => {
+    const isUrgent = s.renewal_month === thisMonth;
+    const isSoon   = s.renewal_month === nextMonth;
+    const badge = isUrgent ? '<span style="background:#ff5252;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">今月</span>'
+      : isSoon ? '<span style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">来月</span>' : '';
+    return `<tr onclick="openOwnServerModal('${s.id}')" style="cursor:pointer">
+      <td><strong>${s.name}</strong>${badge}</td>
+      <td>${s.purpose || '-'}</td>
+      <td>${s.company || '-'}</td>
+      <td>${s.plan || '-'}</td>
+      <td style="text-align:center">${s.renewal_month ? s.renewal_month+'月' : '-'}</td>
+      <td style="text-align:right">${s.monthly_fee ? '¥'+Number(s.monthly_fee).toLocaleString() : '-'}</td>
+      <td style="text-align:right">${s.annual_fee ? '¥'+Number(s.annual_fee).toLocaleString() : '-'}</td>
+      <td style="font-size:12px;color:var(--muted)">${s.memo || ''}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openOwnServerModal('${s.id}')">編集</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function openOwnServerModal(id) {
+  _editingOwnServerId = id || null;
+  const s = id ? (_cache.ownServers || []).find(x => x.id === id) : null;
+  document.getElementById('ownServerModalTitle').textContent = s ? 'サーバー編集' : 'サーバー追加';
+  document.getElementById('deleteOwnServerBtn').style.display = s ? '' : 'none';
+  document.getElementById('os-name').value    = s?.name          || '';
+  document.getElementById('os-purpose').value = s?.purpose       || '';
+  document.getElementById('os-company').value = s?.company       || '';
+  document.getElementById('os-plan').value    = s?.plan          || '';
+  document.getElementById('os-renewal').value = s?.renewal_month || '';
+  document.getElementById('os-monthly').value = s?.monthly_fee   || '';
+  document.getElementById('os-annual').value  = s?.annual_fee    || '';
+  document.getElementById('os-memo').value    = s?.memo          || '';
+  openModal('ownServerModal');
+}
+
+function saveOwnServer() {
+  const name = document.getElementById('os-name').value.trim();
+  if (!name) { toast('サーバー名を入力してください', '⚠️'); return; }
+  const data = {
+    name, purpose: document.getElementById('os-purpose').value.trim() || null,
+    company: document.getElementById('os-company').value.trim() || null,
+    plan: document.getElementById('os-plan').value.trim() || null,
+    renewal_month: Number(document.getElementById('os-renewal').value) || null,
+    monthly_fee: Number(document.getElementById('os-monthly').value) || 0,
+    annual_fee: Number(document.getElementById('os-annual').value) || 0,
+    memo: document.getElementById('os-memo').value.trim() || null,
+  };
+  if (!_cache.ownServers) _cache.ownServers = [];
+  if (_editingOwnServerId) {
+    data.id = _editingOwnServerId;
+    const idx = _cache.ownServers.findIndex(s => s.id === _editingOwnServerId);
+    if (idx >= 0) _cache.ownServers[idx] = data;
+  } else {
+    data.id = 'os-' + Date.now();
+    _cache.ownServers.unshift(data);
+  }
+  // localStorageに保存
+  try { localStorage.setItem('own_servers', JSON.stringify(_cache.ownServers)); } catch(e){}
+  closeModal('ownServerModal');
+  renderOwnServers();
+  toast(_editingOwnServerId ? 'サーバーを更新しました' : 'サーバーを追加しました', '✅', 'success');
+}
+
+function deleteOwnServer() {
+  if (!_editingOwnServerId) return;
+  const s = (_cache.ownServers || []).find(x => x.id === _editingOwnServerId);
+  if (!confirm(`「${s?.name}」を削除しますか？`)) return;
+  _cache.ownServers = (_cache.ownServers || []).filter(x => x.id !== _editingOwnServerId);
+  try { localStorage.setItem('own_servers', JSON.stringify(_cache.ownServers)); } catch(e){}
+  closeModal('ownServerModal');
+  renderOwnServers();
+  toast('削除しました', '🗑');
+}
+
+/* ============================================================
+   OWN SUBSCRIPTION MANAGEMENT（自社サブスク管理）
+   ============================================================ */
+let _editingOwnSubId = null;
+
+function renderOwnSubscriptions() {
+  const search = (document.getElementById('ownSubSearch')?.value || '').toLowerCase();
+  const tbody = document.getElementById('ownSubTableBody');
+  if (!tbody) return;
+
+  let items = _cache.ownSubscriptions || [];
+  if (search) items = items.filter(s =>
+    s.name?.toLowerCase().includes(search) ||
+    s.category?.toLowerCase().includes(search)
+  );
+
+  // KPI
+  const all = _cache.ownSubscriptions || [];
+  const totalMonthly = all.reduce((sum, s) => sum + (Number(s.monthly_fee) || 0), 0);
+  const totalAnnual  = totalMonthly * 12;
+  const kpiEl = document.getElementById('ownSubKPI');
+  if (kpiEl) {
+    kpiEl.innerHTML = `
+      <div style="background:var(--surface);border-radius:10px;padding:16px;border-top:3px solid var(--accent)">
+        <div style="font-size:12px;color:var(--muted)">月額合計（税抜）</div>
+        <div style="font-size:24px;font-weight:700;color:var(--accent);margin-top:4px">¥${totalMonthly.toLocaleString()}</div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:16px;border-top:3px solid #2196f3">
+        <div style="font-size:12px;color:var(--muted)">年間合計（月額換算×12）</div>
+        <div style="font-size:24px;font-weight:700;color:#2196f3;margin-top:4px">¥${totalAnnual.toLocaleString()}</div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:16px;border-top:3px solid #4caf50">
+        <div style="font-size:12px;color:var(--muted)">登録件数</div>
+        <div style="font-size:24px;font-weight:700;color:#4caf50;margin-top:4px">${all.length} 件</div>
+      </div>`;
+  }
+
+  if (items.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:32px">サブスクが登録されていません</td></tr>`;
+    return;
+  }
+  const now = new Date();
+  const thisMonth = now.getMonth() + 1;
+  tbody.innerHTML = items.map(s => {
+    const isNext = s.next_month === thisMonth || s.next_month === (thisMonth === 12 ? 1 : thisMonth + 1);
+    const badge = isNext ? '<span style="background:#ff9800;color:#fff;padding:2px 5px;border-radius:4px;font-size:10px;margin-left:4px">まもなく</span>' : '';
+    return `<tr onclick="openOwnSubModal('${s.id}')" style="cursor:pointer">
+      <td><strong>${s.name}</strong>${badge}</td>
+      <td>${s.category ? `<span style="background:var(--surface);padding:2px 8px;border-radius:10px;font-size:11px">${s.category}</span>` : '-'}</td>
+      <td>${s.plan || '-'}</td>
+      <td style="text-align:center">${s.cycle === 'annual' ? '年払い' : '月払い'}</td>
+      <td style="text-align:center">${s.next_month ? s.next_month+'月' : '-'}</td>
+      <td style="text-align:right;font-weight:600">¥${Number(s.monthly_fee||0).toLocaleString()}</td>
+      <td>${s.payment || '-'}</td>
+      <td style="font-size:12px;color:var(--muted)">${s.memo || ''}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openOwnSubModal('${s.id}')">編集</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function openOwnSubModal(id) {
+  _editingOwnSubId = id || null;
+  const s = id ? (_cache.ownSubscriptions || []).find(x => x.id === id) : null;
+  document.getElementById('ownSubModalTitle').textContent = s ? 'サブスク編集' : 'サブスク追加';
+  document.getElementById('deleteOwnSubBtn').style.display = s ? '' : 'none';
+  document.getElementById('sub-name').value       = s?.name       || '';
+  document.getElementById('sub-category').value   = s?.category   || '';
+  document.getElementById('sub-plan').value       = s?.plan       || '';
+  document.getElementById('sub-cycle').value      = s?.cycle      || 'monthly';
+  document.getElementById('sub-next-month').value = s?.next_month || '';
+  document.getElementById('sub-monthly').value    = s?.monthly_fee|| '';
+  document.getElementById('sub-payment').value    = s?.payment    || '';
+  document.getElementById('sub-memo').value       = s?.memo       || '';
+  openModal('ownSubModal');
+}
+
+function saveOwnSub() {
+  const name = document.getElementById('sub-name').value.trim();
+  if (!name) { toast('サービス名を入力してください', '⚠️'); return; }
+  const data = {
+    name, category: document.getElementById('sub-category').value || null,
+    plan: document.getElementById('sub-plan').value.trim() || null,
+    cycle: document.getElementById('sub-cycle').value || 'monthly',
+    next_month: Number(document.getElementById('sub-next-month').value) || null,
+    monthly_fee: Number(document.getElementById('sub-monthly').value) || 0,
+    payment: document.getElementById('sub-payment').value.trim() || null,
+    memo: document.getElementById('sub-memo').value.trim() || null,
+  };
+  if (!_cache.ownSubscriptions) _cache.ownSubscriptions = [];
+  if (_editingOwnSubId) {
+    data.id = _editingOwnSubId;
+    const idx = _cache.ownSubscriptions.findIndex(s => s.id === _editingOwnSubId);
+    if (idx >= 0) _cache.ownSubscriptions[idx] = data;
+  } else {
+    data.id = 'sub-' + Date.now();
+    _cache.ownSubscriptions.unshift(data);
+  }
+  try { localStorage.setItem('own_subscriptions', JSON.stringify(_cache.ownSubscriptions)); } catch(e){}
+  closeModal('ownSubModal');
+  renderOwnSubscriptions();
+  toast(_editingOwnSubId ? 'サブスクを更新しました' : 'サブスクを追加しました', '✅', 'success');
+}
+
+function deleteOwnSub() {
+  if (!_editingOwnSubId) return;
+  const s = (_cache.ownSubscriptions || []).find(x => x.id === _editingOwnSubId);
+  if (!confirm(`「${s?.name}」を削除しますか？`)) return;
+  _cache.ownSubscriptions = (_cache.ownSubscriptions || []).filter(x => x.id !== _editingOwnSubId);
+  try { localStorage.setItem('own_subscriptions', JSON.stringify(_cache.ownSubscriptions)); } catch(e){}
+  closeModal('ownSubModal');
+  renderOwnSubscriptions();
+  toast('削除しました', '🗑');
+}
+
+// 起動時にlocalStorageから読み込み
+(function loadOwnData() {
+  try {
+    const servers = localStorage.getItem('own_servers');
+    const subs    = localStorage.getItem('own_subscriptions');
+    if (servers) _cache.ownServers = JSON.parse(servers);
+    if (subs)    _cache.ownSubscriptions = JSON.parse(subs);
+  } catch(e) {}
+})();

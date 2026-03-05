@@ -6,7 +6,7 @@
 const CONFIG_KEY = 'webstudio_company';
 
 const DEFAULT_COMPANY = {
-  name: '', zip: '', addr: '', tel: '', email: '',
+  name: '', zip: '', addr: '', tel: '', fax: '', email: '', regNo: '',
   bank: '', account: '', holder: '',
   taxRate: 10, dueDays: 30,
 };
@@ -40,7 +40,7 @@ function applyConfigToForm() {
   const c = window.CFG.company;
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
   set('co-name', c.name); set('co-zip', c.zip); set('co-addr', c.addr);
-  set('co-tel', c.tel); set('co-email', c.email); set('co-bank', c.bank);
+  set('co-tel', c.tel); set('co-fax', c.fax); set('co-email', c.email); set('co-regno', c.regNo); set('co-bank', c.bank);
   set('co-account', c.account); set('co-holder', c.holder);
   set('co-tax', c.taxRate); set('co-due', c.dueDays);
 }
@@ -49,7 +49,7 @@ function saveCompany() {
   const get = (id) => document.getElementById(id)?.value?.trim() || '';
   const company = {
     name: get('co-name'), zip: get('co-zip'), addr: get('co-addr'),
-    tel: get('co-tel'), email: get('co-email'), bank: get('co-bank'),
+    tel: get('co-tel'), fax: get('co-fax'), email: get('co-email'), regNo: get('co-regno'), bank: get('co-bank'),
     account: get('co-account'), holder: get('co-holder'),
     taxRate: Number(get('co-tax')) || 10, dueDays: Number(get('co-due')) || 30,
   };

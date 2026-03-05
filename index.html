@@ -58,6 +58,13 @@
       <div class="nav-item" data-view="dashboard" onclick="showView('dashboard')">
         <span class="nav-icon">📊</span> 売上ダッシュボード
       </div>
+      <div class="nav-section">自社管理</div>
+      <div class="nav-item" data-view="own-servers" onclick="showView('own-servers')">
+        <span class="nav-icon">🖥️</span> サーバー管理
+      </div>
+      <div class="nav-item" data-view="own-subscriptions" onclick="showView('own-subscriptions')">
+        <span class="nav-icon">💳</span> サブスク管理
+      </div>
       <div class="nav-item" data-view="company" onclick="showView('company')">
         <span class="nav-icon">⚙️</span> 自社情報
       </div>
@@ -75,7 +82,7 @@
     <div class="topbar">
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-0740</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-0801</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -356,6 +363,149 @@
       </div>
 
       <!-- COMPANY VIEW -->
+      <!-- OWN SERVERS VIEW -->
+      <div id="view-own-servers" style="display:none">
+        <div class="toolbar">
+          <div class="search-box"><span>🔍</span>
+            <input type="text" id="ownServerSearch" placeholder="サーバー名・用途で検索..." oninput="renderOwnServers()">
+          </div>
+          <button class="btn btn-primary" onclick="openOwnServerModal()">＋ サーバー追加</button>
+        </div>
+        <div id="ownServerAlert" style="display:none;margin-bottom:12px;padding:10px 16px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;font-size:13px;color:#795548"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>サーバー名</th>
+                <th>用途</th>
+                <th>会社</th>
+                <th>プラン</th>
+                <th style="text-align:center">更新月</th>
+                <th style="text-align:right">月額</th>
+                <th style="text-align:right">年額</th>
+                <th>メモ</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ownServerTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- OWN SUBSCRIPTIONS VIEW -->
+      <div id="view-own-subscriptions" style="display:none">
+        <div class="toolbar">
+          <div class="search-box"><span>🔍</span>
+            <input type="text" id="ownSubSearch" placeholder="サービス名・カテゴリで検索..." oninput="renderOwnSubscriptions()">
+          </div>
+          <button class="btn btn-primary" onclick="openOwnSubModal()">＋ サブスク追加</button>
+        </div>
+        <div id="ownSubKPI" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>サービス名</th>
+                <th>カテゴリ</th>
+                <th>プラン</th>
+                <th style="text-align:center">請求サイクル</th>
+                <th style="text-align:center">次回請求月</th>
+                <th style="text-align:right">月額換算</th>
+                <th>支払方法</th>
+                <th>メモ</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ownSubTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- OWN SERVER MODAL -->
+      <div class="overlay" id="ownServerModal" onclick="if(event.target===this)closeModal('ownServerModal')">
+        <div class="modal" style="max-width:500px">
+          <div class="modal-header">
+            <div class="modal-title" id="ownServerModalTitle">サーバー追加</div>
+            <button class="modal-close" onclick="closeModal('ownServerModal')">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-grid">
+              <div class="form-group form-full"><label class="form-label">サーバー名 *</label><input class="form-control" id="os-name" placeholder="本番サーバー・開発環境 など"></div>
+              <div class="form-group form-full"><label class="form-label">用途</label><input class="form-control" id="os-purpose" placeholder="Webサイト本番・メールサーバー など"></div>
+              <div class="form-group form-full"><label class="form-label">会社</label><input class="form-control" id="os-company" placeholder="さくらインターネット・AWS など"></div>
+              <div class="form-group form-full"><label class="form-label">プラン</label><input class="form-control" id="os-plan" placeholder="スタンダード・t3.micro など"></div>
+              <div class="form-group">
+                <label class="form-label">更新月</label>
+                <select class="form-control" id="os-renewal">
+                  <option value="">未設定</option>
+                  <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+                  <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+                  <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+                  <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+                </select>
+              </div>
+              <div class="form-group"><label class="form-label">月額（税抜）</label><input class="form-control" id="os-monthly" type="number" placeholder="0"></div>
+              <div class="form-group form-full"><label class="form-label">年額（税抜）</label><input class="form-control" id="os-annual" type="number" placeholder="0"></div>
+              <div class="form-group form-full"><label class="form-label">メモ</label><textarea class="form-control" id="os-memo" rows="2" placeholder="IPアドレス・ログイン情報保管場所 など"></textarea></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" id="deleteOwnServerBtn" onclick="deleteOwnServer()" style="margin-right:auto;color:var(--accent);border-color:var(--accent);display:none">🗑 削除</button>
+            <button class="btn btn-outline" onclick="closeModal('ownServerModal')">キャンセル</button>
+            <button class="btn btn-primary" onclick="saveOwnServer()">保存する</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- OWN SUBSCRIPTION MODAL -->
+      <div class="overlay" id="ownSubModal" onclick="if(event.target===this)closeModal('ownSubModal')">
+        <div class="modal" style="max-width:500px">
+          <div class="modal-header">
+            <div class="modal-title" id="ownSubModalTitle">サブスク追加</div>
+            <button class="modal-close" onclick="closeModal('ownSubModal')">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-grid">
+              <div class="form-group form-full"><label class="form-label">サービス名 *</label><input class="form-control" id="sub-name" placeholder="Adobe CC・GitHub・Slack など"></div>
+              <div class="form-group">
+                <label class="form-label">カテゴリ</label>
+                <select class="form-control" id="sub-category">
+                  <option value="">未設定</option>
+                  <option>デザイン</option><option>開発ツール</option><option>クラウド</option>
+                  <option>コミュニケーション</option><option>マーケティング</option><option>会計・経理</option><option>その他</option>
+                </select>
+              </div>
+              <div class="form-group"><label class="form-label">プラン</label><input class="form-control" id="sub-plan" placeholder="Pro・Business など"></div>
+              <div class="form-group">
+                <label class="form-label">請求サイクル</label>
+                <select class="form-control" id="sub-cycle">
+                  <option value="monthly">月払い</option>
+                  <option value="annual">年払い</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">次回請求月</label>
+                <select class="form-control" id="sub-next-month">
+                  <option value="">未設定</option>
+                  <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+                  <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+                  <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+                  <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+                </select>
+              </div>
+              <div class="form-group"><label class="form-label">月額換算（税抜）</label><input class="form-control" id="sub-monthly" type="number" placeholder="0"></div>
+              <div class="form-group form-full"><label class="form-label">支払方法</label><input class="form-control" id="sub-payment" placeholder="法人カード・銀行振込 など"></div>
+              <div class="form-group form-full"><label class="form-label">メモ</label><textarea class="form-control" id="sub-memo" rows="2"></textarea></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" id="deleteOwnSubBtn" onclick="deleteOwnSub()" style="margin-right:auto;color:var(--accent);border-color:var(--accent);display:none">🗑 削除</button>
+            <button class="btn btn-outline" onclick="closeModal('ownSubModal')">キャンセル</button>
+            <button class="btn btn-primary" onclick="saveOwnSub()">保存する</button>
+          </div>
+        </div>
+      </div>
+
       <div id="view-company" style="display:none">
         <div style="max-width:640px">
           <h3 style="margin-bottom:20px;font-size:16px;font-weight:700">自社情報設定</h3>
@@ -384,26 +534,7 @@
               <div class="form-group"><label class="form-label">支払期限（日数）</label><input class="form-control" id="co-due" type="number" value="30"></div>
             </div>
           </div>
-          <div class="section-card" style="margin-top:16px">
-            <div class="section-label">🔑 Supabase 接続設定</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Supabaseのプロジェクト設定 → API から取得できます</div>
-            <div class="form-grid">
-              <div class="form-group form-full"><label class="form-label">Supabase URL</label><input class="form-control" id="co-sb-url" placeholder="https://xxxx.supabase.co"></div>
-              <div class="form-group form-full"><label class="form-label">Supabase Anon Key</label><input class="form-control" id="co-sb-key" type="password" placeholder="eyJhbGci..."></div>
-            </div>
-            <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="testSupabaseConnection()">接続テスト</button>
-          </div>
-          <div class="section-card" style="margin-top:16px">
-            <div class="section-label">📧 Resend メール設定</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
-              <a href="https://resend.com" target="_blank" style="color:var(--accent2)">resend.com</a> で無料アカウントを作成してAPIキーを取得してください（月3,000通まで無料）
-            </div>
-            <div class="form-grid">
-              <div class="form-group form-full"><label class="form-label">Resend API Key</label><input class="form-control" id="co-resend-key" type="password" placeholder="re_xxxxxxxxxxxx"></div>
-              <div class="form-group form-full"><label class="form-label">送信元メールアドレス（Resendで認証済みのドメイン）</label><input class="form-control" id="co-from-email" placeholder="noreply@yourdomain.com"></div>
-            </div>
-            <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="testEmailSend()">テストメール送信</button>
-          </div>
+
           <div style="margin-top:20px;display:flex;gap:8px">
             <button class="btn btn-primary" onclick="saveCompany()">設定を保存する</button>
           </div>
