@@ -24,6 +24,9 @@ function openInvoicePreviewById(projectId, type) {
   if (!p) return;
   window._currentInvoiceData = { project: p, type };
   renderInvoicePreview(p, type);
+  // メールボタンを必ず有効化
+  const emailBtn = document.getElementById('emailInvoiceBtn');
+  if (emailBtn) { emailBtn.disabled = false; emailBtn.style.opacity = ''; }
   openModal('invoiceModal');
 }
 
@@ -44,6 +47,9 @@ function openInvoicePreview(type) {
   };
   window._currentInvoiceData = { project: pseudo, type };
   renderInvoicePreview(pseudo, type);
+  // メールボタンを必ず有効化
+  const emailBtn = document.getElementById('emailInvoiceBtn');
+  if (emailBtn) { emailBtn.disabled = false; emailBtn.style.opacity = ''; }
   openModal('invoiceModal');
 }
 

@@ -263,7 +263,10 @@ function buildInvoiceEmailHtml(project, client, company) {
 
 function sendByEmail() {
   const { project: p, type } = window._currentInvoiceData || {};
-  if (!p) return;
+  if (!p) {
+    toast('案件情報が読み込まれていません。一度閉じて再度開いてください。', '⚠️', 'error');
+    return;
+  }
   const co = window.CFG.company;
   const client = getClientById(p.clientId) || p._client || {};
   const isEstimate = type === 'estimate';
