@@ -415,12 +415,29 @@ function openEditProject(id) {
 
   populateClientSelect(p.clientId);
   clearLineItems();
-  (p.lines || []).forEach(l => addLineItem(l));
+
+  // ドメイン合算モードの場合は合算した明細を使う
+  const merge = _domainInvoiceMerge;
+  if (merge && merge.projId === id) {
+    merge.lines.forEach(l => addLineItem(l));
+    _domainInvoiceMerge = null;
+    // 請求書No未設定なら自動生成
+    if (!p.invNo) {
+      const now = new Date();
+      const auto = `INV-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+      document.getElementById('p-inv-no').value = auto;
+    }
+  } else {
+    (p.lines || []).forEach(l => addLineItem(l));
+  }
+
   calcTotals();
   updateStatusFlow(p.status);
   switchTab('project','info');
   openModal('projectModal');
 }
+// openProjectModal は openEditProject の別名
+function openProjectModal(id) { openEditProject(id); }
 
 async function saveProject() {
   const name = document.getElementById('p-name')?.value?.trim();
@@ -731,6 +748,7 @@ function renderDomains() {
     const clientName = client ? client.name : '<span style="color:var(--muted)">未設定</span>';
     const renewal = d.renewal_month ? `${d.renewal_month}月` : '<span style="color:var(--muted)">-</span>';
     const billing = d.billing_month ? `${d.billing_month}月` : '<span style="color:var(--muted)">-</span>';
+    const price = d.price ? `¥${Number(d.price).toLocaleString()}` : '<span style="color:var(--muted)">-</span>';
 
     // 今月・来月は強調
     const isUrgent = d.renewal_month === thisMonth;
@@ -741,12 +759,20 @@ function renderDomains() {
       ? '<span style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">来月</span>'
       : '';
 
+    const billStatusMap = { pending: ['請求予定','#ff9800'], invoiced: ['請求済','#2196f3'], paid: ['入金済','#2e8b57'] };
+    const bs = billStatusMap[d.bill_status];
+    const billBadge = bs
+      ? `<span style="background:${bs[1]};color:#fff;padding:2px 7px;border-radius:4px;font-size:11px">${bs[0]}</span>`
+      : '<span style="color:var(--muted)">-</span>';
+
     return `<tr onclick="openDomainModal('${d.id}')" style="cursor:pointer">
       <td><strong>${d.domain_name}</strong>${badge}</td>
       <td>${clientName}</td>
       <td>${d.registrar || '<span style="color:var(--muted)">-</span>'}</td>
       <td style="text-align:center">${renewal}</td>
       <td style="text-align:center">${billing}</td>
+      <td style="text-align:right;font-family:monospace">${price}</td>
+      <td style="text-align:center">${billBadge}</td>
       <td style="color:var(--muted);font-size:12px">${d.memo || ''}</td>
       <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openDomainModal('${d.id}')">編集</button></td>
     </tr>`;
@@ -769,13 +795,42 @@ function openDomainModal(id) {
     ).join('');
 
   // フォームにデータ設定
-  document.getElementById('dm-name').value      = domain?.domain_name   || '';
-  document.getElementById('dm-renewal').value   = domain?.renewal_month || '';
-  document.getElementById('dm-billing').value   = domain?.billing_month || '';
-  document.getElementById('dm-registrar').value = domain?.registrar     || '';
-  document.getElementById('dm-memo').value      = domain?.memo          || '';
+  document.getElementById('dm-name').value        = domain?.domain_name   || '';
+  document.getElementById('dm-renewal').value     = domain?.renewal_month || '';
+  document.getElementById('dm-billing').value     = domain?.billing_month || '';
+  document.getElementById('dm-registrar').value   = domain?.registrar     || '';
+  document.getElementById('dm-memo').value        = domain?.memo          || '';
+  document.getElementById('dm-price').value       = domain?.price         || '';
+  document.getElementById('dm-bill-status').value = domain?.bill_status   || '';
+
+  // 請求書作成エリア（請求予定 かつ クライアント設定済みの場合に表示）
+  _updateDomainInvoiceArea(domain);
 
   openModal('domainModal');
+}
+
+function _updateDomainInvoiceArea(domain) {
+  const area = document.getElementById('dm-invoice-area');
+  const relDiv = document.getElementById('dm-related-projects');
+  if (!area || !relDiv) return;
+
+  const clientId = domain?.client_id;
+  const billStatus = domain?.bill_status;
+  if (!clientId || billStatus !== 'pending') { area.style.display = 'none'; return; }
+
+  // 同クライアントの納品済案件を探す
+  const related = (_cache.projects || []).filter(p =>
+    p.client_id === clientId && p.status === 'delivered'
+  );
+
+  area.style.display = '';
+  if (related.length === 0) {
+    relDiv.innerHTML = '<span style="color:var(--muted)">納品済案件なし（ドメイン費用のみで請求書作成）</span>';
+  } else {
+    relDiv.innerHTML = '合算対象案件：' + related.map(p =>
+      `<span style="background:var(--surface3);padding:2px 8px;border-radius:4px;margin:2px;display:inline-block">${p.name}</span>`
+    ).join('');
+  }
 }
 
 /* ── 保存 ── */
@@ -790,6 +845,8 @@ async function saveDomain() {
     billing_month: Number(document.getElementById('dm-billing').value) || null,
     registrar:     document.getElementById('dm-registrar').value.trim() || null,
     memo:          document.getElementById('dm-memo').value.trim() || null,
+    price:         Number(document.getElementById('dm-price').value) || null,
+    bill_status:   document.getElementById('dm-bill-status').value || null,
   };
 
   if (_editingDomainId) data.id = _editingDomainId;
@@ -827,6 +884,88 @@ async function deleteDomain() {
     toast('削除エラー: ' + e.message, '❌', 'error');
   }
 }
+
+/* ── ドメイン費用を含む請求書作成 ── */
+async function createDomainInvoice() {
+  const domain = _editingDomainId ? (_cache.domains || []).find(d => d.id === _editingDomainId) : null;
+  if (!domain) return;
+
+  const clientId = domain.client_id;
+  const client = getClientById(clientId);
+
+  // 同クライアントの納品済案件
+  const relatedProjects = (_cache.projects || []).filter(p =>
+    p.client_id === clientId && p.status === 'delivered'
+  );
+
+  // 請求明細を構築：案件の明細 + ドメイン費用
+  let lines = [];
+  relatedProjects.forEach(p => {
+    (p.lines || []).forEach(l => lines.push({ ...l }));
+  });
+  // ドメイン費用を追加
+  if (domain.price) {
+    lines.push({
+      name:  `ドメイン更新費（${domain.domain_name}）`,
+      qty:   1,
+      unit:  '年',
+      price: Number(domain.price),
+    });
+  }
+
+  if (lines.length === 0) {
+    toast('請求明細がありません。ドメイン費用を設定してください。', '⚠️'); return;
+  }
+
+  // 請求書番号を生成
+  const now = new Date();
+  const invNo = `INV-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-D${String(now.getDate()).padStart(2,'0')}`;
+
+  // 案件モーダルを請求書として開く（新規案件として）
+  closeModal('domainModal');
+
+  // 案件を1つ選択または新規作成して請求書を開く
+  if (relatedProjects.length > 0) {
+    // 最初の納品済案件に合算して請求書を表示
+    const proj = relatedProjects[0];
+    // 既存案件にドメイン費用の行を追加して請求書モーダルを開く
+    const mergedLines = [...(proj.lines || [])];
+    if (domain.price) {
+      mergedLines.push({
+        name: `ドメイン更新費（${domain.domain_name}）`,
+        qty: 1, unit: '年', price: Number(domain.price),
+      });
+    }
+    // 一時的にキャッシュを上書きして請求書プレビューへ
+    _domainInvoiceMerge = { projId: proj.id, domainId: domain.id, lines: mergedLines };
+    openProjectModal(proj.id);
+    setTimeout(() => {
+      switchTab('project', 'estimate');
+      toast(`「${proj.name}」にドメイン費用を合算した請求書を確認してください`, '📄');
+    }, 200);
+  } else {
+    // 案件なし：ドメイン費用のみの新規案件として請求書を作成
+    const newProj = {
+      name: `ドメイン更新（${domain.domain_name}）`,
+      client_id: clientId,
+      status: 'invoiced',
+      lines: lines,
+      inv_no: invNo,
+      order_route: '手動登録',
+    };
+    try {
+      const saved = await dbSaveProject(newProj);
+      _cache.projects.unshift(saved);
+      renderTable(); updateKPI();
+      openProjectModal(saved.id);
+      setTimeout(() => switchTab('project', 'estimate'), 200);
+      toast('ドメイン費用の請求書を作成しました', '✅', 'success');
+    } catch(e) {
+      toast('作成エラー: ' + e.message, '❌', 'error');
+    }
+  }
+}
+let _domainInvoiceMerge = null;
 
 /* ============================================================
    HOSTING MANAGEMENT

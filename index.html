@@ -85,7 +85,7 @@
     <div class="topbar">
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-2130</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-2210</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -276,6 +276,8 @@
                 <th>レジストラ</th>
                 <th style="text-align:center">更新月</th>
                 <th style="text-align:center">請求月</th>
+                <th style="text-align:right">年間費用</th>
+                <th style="text-align:center">請求</th>
                 <th>メモ</th>
                 <th></th>
               </tr>
@@ -871,6 +873,19 @@
               <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
             </select>
           </div>
+          <div class="form-group">
+            <label class="form-label">年間費用（円）</label>
+            <input class="form-control" id="dm-price" type="number" placeholder="3000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">請求ステータス</label>
+            <select class="form-control" id="dm-bill-status">
+              <option value="">未設定</option>
+              <option value="pending">請求予定</option>
+              <option value="invoiced">請求済</option>
+              <option value="paid">入金済</option>
+            </select>
+          </div>
           <div class="form-group form-full">
             <label class="form-label">レジストラ</label>
             <input class="form-control" id="dm-registrar" placeholder="お名前.com、ムームードメイン など">
@@ -879,6 +894,12 @@
             <label class="form-label">メモ</label>
             <textarea class="form-control" id="dm-memo" rows="2" placeholder="備考など"></textarea>
           </div>
+        </div>
+        <!-- 請求書作成エリア -->
+        <div id="dm-invoice-area" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px">📋 同クライアントの納品済案件と合算して請求書を作成できます</div>
+          <div id="dm-related-projects" style="font-size:13px;margin-bottom:10px"></div>
+          <button class="btn btn-primary btn-sm" onclick="createDomainInvoice()">📄 請求書を作成する</button>
         </div>
       </div>
       <div class="modal-footer">
