@@ -57,15 +57,17 @@ let _cache = {
 };
 
 function initSupabase() {
-  const { url, anonKey } = window.CFG.supabase;
+  const url     = window.CFG?.supabaseUrl;
+  const anonKey = window.CFG?.supabaseAnonKey;
   if (!url || !anonKey) {
-    console.warn('Supabase設定が未入力です。自社情報設定から設定してください。');
+    console.warn('Supabase設定が未設定です。');
     updateDbStatus(false, '未設定');
     return false;
   }
   try {
     _supabase = supabase.createClient(url, anonKey);
     updateDbStatus(true, '接続済');
+    console.log('✅ Supabase接続成功:', url);
     return true;
   } catch (e) {
     console.error('Supabase初期化エラー:', e);
