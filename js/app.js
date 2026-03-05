@@ -485,6 +485,7 @@ async function saveProject() {
     }
 
     // 請求書作成画面からの保留処理があれば確定
+    const wasPendingBilling = !!_pendingBilling;
     if (_pendingBilling) {
       const pb = _pendingBilling;
       _pendingBilling = null;
@@ -494,11 +495,31 @@ async function saveProject() {
       for (const pid of remainingProjIds) {
         const proj = (_cache.projects||[]).find(p => p.id === pid);
         if (!proj) continue;
-        const newLines = [...(proj.lines||[]), ...pb.extraLines];
-        const updData = { ...proj, status: 'invoiced', lines: newLines, invNo: proj.invNo || pb.invNo };
+        const updData = { ...proj, status: 'invoiced', invNo: proj.invNo || pb.invNo };
         const s = await dbSaveProject(updData);
         const idx = (_cache.projects||[]).findIndex(p => p.id === pid);
-        if (idx >= 0) _cache.projects[idx] = s || { ..._cache.projects[idx], status: 'invoiced', lines: newLines };
+        if (idx >= 0) _cache.projects[idx] = s || { ..._cache.projects[idx], status: 'invoiced' };
+      }
+
+      // ドメイン・ホスティング明細がある場合は新規案件として登録
+      if (pb.extraLines.length > 0) {
+        const parts = [];
+        if (pb.checkedDomainIds.length > 0) parts.push(`ドメイン${pb.checkedDomainIds.length}件`);
+        if (pb.checkedHostingIds.length > 0) parts.push(`ホスティング${pb.checkedHostingIds.length}件`);
+        const client = getClientById(_billingSelectedClientId || pb.checkedProjIds.reduce((cid, pid) => {
+          return cid || (_cache.projects||[]).find(p => p.id === pid)?.clientId;
+        }, null));
+        const extraProj = {
+          name:       (client?.name ? client.name + ' ' : '') + parts.join('・') + '請求',
+          clientId:   client?.id || _billingSelectedClientId,
+          status:     'invoiced',
+          lines:      pb.extraLines,
+          invNo:      pb.invNo,
+          invDate:    new Date().toISOString().slice(0, 10),
+          orderRoute: '手動登録',
+        };
+        const savedExtra = await dbSaveProject(extraProj);
+        if (savedExtra?.id) _cache.projects.unshift(savedExtra);
       }
 
       // ドメイン → 請求済
@@ -526,6 +547,11 @@ async function saveProject() {
     updateKPI();
     renderInvoiceList();
     populateYearFilter();
+    // 請求書作成からの確定保存だった場合は選択をリセットして一覧に戻す
+    if (wasPendingBilling) {
+      _billingSelectedClientId = null;
+    }
+    renderBillingView();
     toast(window._editingProjectId ? '案件を更新しました' : '案件を登録しました', '✅', 'success');
   } catch (e) {
     // エラーはdbSaveProject内でtoast済み
@@ -1057,10 +1083,14 @@ let _billingSelectedClientId = null;
 let _pendingBilling = null; // 請求書作成画面からの未確定選択情報
 
 function renderBillingView() {
-  _billingSelectedClientId = null;
   _renderBillingClientList();
-  document.getElementById('billingRightEmpty').style.display = 'flex';
-  document.getElementById('billingRightContent').style.display = 'none';
+  // 選択中クライアントがいれば右ペインも再描画、いなければ空表示
+  if (_billingSelectedClientId) {
+    selectBillingClient(_billingSelectedClientId);
+  } else {
+    document.getElementById('billingRightEmpty').style.display = 'flex';
+    document.getElementById('billingRightContent').style.display = 'none';
+  }
 }
 
 function _renderBillingClientList() {
@@ -1251,11 +1281,10 @@ async function createBatchInvoice() {
   _pendingBilling = { checkedProjIds, checkedDomainIds, checkedHostingIds, extraLines, invNo };
 
   if (checkedProjIds.length > 0) {
-    // 既存案件の先頭をモーダルで開き、ドメイン・ホスティング明細を一時追加して表示
+    // 既存案件の先頭をモーダルで開く（ドメイン・ホスティングは別案件になるので明細は混ぜない）
     const firstProj = (_cache.projects || []).find(p => p.id === checkedProjIds[0]);
     if (!firstProj) return;
-    // 表示用に一時的に明細をマージしたオブジェクトをセット（キャッシュは変更しない）
-    const previewProj = { ...firstProj, lines: [...(firstProj.lines||[]), ...extraLines], invNo: firstProj.invNo || invNo, status: 'invoiced' };
+    const previewProj = { ...firstProj, status: 'invoiced', invNo: firstProj.invNo || invNo };
     _pendingBilling.previewProjId = firstProj.id;
     openEditProjectPreview(previewProj);
     setTimeout(() => switchTab('project', 'estimate'), 200);
