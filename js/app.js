@@ -989,7 +989,7 @@ async function autoUpdateDomainBillStatus() {
 
   // ホスティング：毎月(0) or 請求月=今月 かつ 未設定のもの
   const hostingTargets = (_cache.hostings || []).filter(h =>
-    (h.billing_month === 0 || h.billing_month === thisMonth) &&
+    (Number(h.billing_month) === 0 || h.billing_month === thisMonth) &&
     (!h.bill_status || h.bill_status === '')
   );
   for (const h of hostingTargets) {
@@ -1124,7 +1124,7 @@ function selectBillingClient(clientId) {
       htEl.innerHTML = pendingHostings.map(h => {
         const fee = h.monthly_fee || h.annual_fee || 0;
         const feeLabel = h.monthly_fee ? `月額 ¥${Number(h.monthly_fee).toLocaleString()}` : (h.annual_fee ? `年額 ¥${Number(h.annual_fee).toLocaleString()}` : '金額未設定');
-        const cycleLabel = h.billing_month === 0 ? '毎月' : (h.billing_month ? h.billing_month+'月請求' : '');
+        const cycleLabel = Number(h.billing_month) === 0 ? '毎月' : (h.billing_month ? h.billing_month+'月請求' : '');
         return `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface3);border-radius:8px;margin-bottom:6px;cursor:pointer;border:1px solid var(--border)">
           <input type="checkbox" class="billing-hosting-check" data-id="${h.id}" checked style="flex-shrink:0" onchange="updateBillingTotal()">
           <div style="flex:1">
@@ -1255,7 +1255,7 @@ async function createBatchInvoice() {
     // ホスティングのステータスを「請求済」に更新（毎月は「未設定」に戻す）
     for (const hid of checkedHostingIds) {
       const h = (_cache.hostings||[]).find(x => x.id === hid);
-      const newStatus = h?.billing_month === 0 ? null : 'invoiced'; // 毎月は来月また請求予定にするためリセット
+      const newStatus = Number(h?.billing_month) === 0 ? null : 'invoiced'; // 毎月は来月また請求予定にするためリセット
       await dbSaveHosting({ id: hid, bill_status: newStatus });
       const idx = (_cache.hostings||[]).findIndex(x => x.id === hid);
       if (idx >= 0) _cache.hostings[idx].bill_status = newStatus;
@@ -1313,7 +1313,7 @@ function renderHostings() {
     const isSoon   = h.renewal_month === nextMonth;
     const badge = isUrgent ? '<span style="background:#ff5252;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">今月</span>'
       : isSoon ? '<span style="background:#ff9800;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:6px">来月</span>' : '';
-    const billingLabel = h.billing_month === 0 ? '毎月' : (h.billing_month ? h.billing_month+'月' : '-');
+    const billingLabel = Number(h.billing_month) === 0 ? '毎月' : (h.billing_month ? h.billing_month+'月' : '-');
     const billStatusMap = { pending: ['請求予定','#ff9800'], invoiced: ['請求済','#2196f3'], paid: ['入金済','#2e8b57'] };
     const bs = billStatusMap[h.bill_status];
     const billBadge = bs
@@ -1346,7 +1346,7 @@ function openHostingModal(id) {
   document.getElementById('ht-plan').value        = h?.plan           || '';
   document.getElementById('ht-registrar').value   = h?.registrar      || '';
   document.getElementById('ht-renewal').value     = h?.renewal_month  ?? '';
-  document.getElementById('ht-billing').value     = h?.billing_month  ?? '';
+  document.getElementById('ht-billing').value     = h?.billing_month != null ? String(h.billing_month) : '';
   document.getElementById('ht-monthly').value     = h?.monthly_fee    || '';
   document.getElementById('ht-annual').value      = h?.annual_fee     || '';
   document.getElementById('ht-memo').value        = h?.memo           || '';
