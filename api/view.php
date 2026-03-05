@@ -89,6 +89,46 @@ $taxRate  = 10;
 $tax      = round($subtotal * $taxRate / 100);
 $grand    = $subtotal + $tax;
 
+// 自社情報（Supabaseのcompany_settingsテーブルから取得）
+$co = [
+    'name' => '', 'postal' => '', 'address' => '',
+    'tel'  => '', 'fax'    => '', 'email'   => '',
+    'reg'  => '', 'stamp'  => '',
+];
+$sbUrl = getenv('SUPABASE_URL');
+$sbKey = getenv('SUPABASE_ANON_KEY');
+if ($sbUrl && $sbKey) {
+    $apiUrl = rtrim($sbUrl, '/') . '/rest/v1/company_settings?id=eq.1&limit=1';
+    $ch = curl_init($apiUrl);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 3,
+        CURLOPT_HTTPHEADER     => [
+            'apikey: ' . $sbKey,
+            'Authorization: Bearer ' . $sbKey,
+            'Accept: application/json',
+        ],
+    ]);
+    $res = curl_exec($ch);
+    curl_close($ch);
+    if ($res) {
+        $rows = json_decode($res, true);
+        if (!empty($rows[0])) {
+            $r = $rows[0];
+            $co = [
+                'name'    => $r['name']          ?? '',
+                'postal'  => $r['zip']           ?? '',
+                'address' => $r['addr']          ?? '',
+                'tel'     => $r['tel']           ?? '',
+                'fax'     => $r['fax']           ?? '',
+                'email'   => $r['email']         ?? '',
+                'reg'     => $r['reg_no']        ?? '',
+                'stamp'   => $r['stamp_data_url'] ?? '',
+            ];
+        }
+    }
+}
+
 $docTitle = $type === 'estimate' ? '見積書' : '請求書';
 $docNo    = $type === 'estimate' ? ($p['est_no'] ?? '—') : ($p['inv_no'] ?? '—');
 $today    = date('Y年m月d日');
@@ -160,6 +200,38 @@ $pdfBtn = '<button onclick="window.print()" style="display:inline-block;backgrou
         <?= $today ?><br>
         <?= $isEst ? '見積番号' : '請求番号' ?>：<?= htmlspecialchars($docNo) ?>
       </div>
+      <?php if ($co['name'] || $co['stamp']): ?>
+      <div style="display:flex;justify-content:flex-end;align-items:flex-start;gap:12px;margin-top:8px">
+        <div style="font-size:12px;color:#444;line-height:1.8;text-align:right">
+          <?php if ($co['name']): ?>
+          <div style="font-size:13px;font-weight:700"><?= htmlspecialchars($co['name']) ?></div>
+          <?php endif; ?>
+          <?php if ($co['postal']): ?>
+          <div>〒<?= htmlspecialchars($co['postal']) ?></div>
+          <?php endif; ?>
+          <?php if ($co['address']): ?>
+          <div><?= htmlspecialchars($co['address']) ?></div>
+          <?php endif; ?>
+          <?php if ($co['tel']): ?>
+          <div>TEL: <?= htmlspecialchars($co['tel']) ?></div>
+          <?php endif; ?>
+          <?php if ($co['fax']): ?>
+          <div>FAX: <?= htmlspecialchars($co['fax']) ?></div>
+          <?php endif; ?>
+          <?php if ($co['email']): ?>
+          <div><?= htmlspecialchars($co['email']) ?></div>
+          <?php endif; ?>
+          <?php if ($co['reg']): ?>
+          <div style="margin-top:4px;font-size:11px;color:#888">登録番号：<?= htmlspecialchars($co['reg']) ?></div>
+          <?php endif; ?>
+        </div>
+        <?php if ($co['stamp']): ?>
+        <div style="flex-shrink:0">
+          <img src="<?= htmlspecialchars($co['stamp']) ?>" style="width:72px;height:72px;object-fit:contain;opacity:0.85" alt="印鑑">
+        </div>
+        <?php endif; ?>
+      </div>
+      <?php endif; ?>
     </div>
   </div>
 

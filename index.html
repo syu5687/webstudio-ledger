@@ -85,7 +85,7 @@
     <div class="topbar">
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-1110</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-1125</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -542,6 +542,21 @@
             <div class="form-grid">
               <div class="form-group"><label class="form-label">消費税率（%）</label><input class="form-control" id="co-tax" type="number" value="10"></div>
               <div class="form-group"><label class="form-label">支払期限（日数）</label><input class="form-control" id="co-due" type="number" value="30"></div>
+            </div>
+          </div>
+
+          <div class="section-card" style="margin-top:16px">
+            <div class="section-label">印鑑画像</div>
+            <div style="display:flex;align-items:center;gap:16px;padding:8px 0">
+              <div id="co-stamp-none" style="width:80px;height:80px;border:2px dashed #ccc;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:11px;text-align:center;flex-shrink:0">未設定</div>
+              <img id="co-stamp-preview" src="" alt="印鑑" style="display:none;width:80px;height:80px;object-fit:contain;border-radius:50%;border:1px solid #ddd;flex-shrink:0">
+              <div>
+                <label class="btn btn-secondary" style="cursor:pointer;font-size:13px">
+                  画像を選択
+                  <input type="file" accept="image/*" style="display:none" onchange="onStampFileChange(this)">
+                </label>
+                <div style="font-size:11px;color:#888;margin-top:6px">JPG / PNG / GIF 対応。100×100pxに自動リサイズされます。</div>
+              </div>
             </div>
           </div>
 

@@ -1,28 +1,14 @@
 /* ============================================================
    config.js — 設定管理
-   優先順位: window.ENV（Netlify環境変数） > localStorage
+   自社情報はSupabaseのcompany_settingsテーブルで管理
    ============================================================ */
-
-const CONFIG_KEY = 'webstudio_company';
 
 const DEFAULT_COMPANY = {
   name: '', zip: '', addr: '', tel: '', fax: '', email: '', regNo: '',
   bank: '', account: '', holder: '',
   taxRate: 10, dueDays: 30,
+  stampDataUrl: '',  // base64 data URL
 };
-
-function loadCompany() {
-  try {
-    const saved = localStorage.getItem(CONFIG_KEY);
-    if (saved) return { ...DEFAULT_COMPANY, ...JSON.parse(saved) };
-  } catch (e) { console.warn('自社情報読み込みエラー:', e); }
-  return { ...DEFAULT_COMPANY };
-}
-
-function saveCompanyToStorage(data) {
-  try { localStorage.setItem(CONFIG_KEY, JSON.stringify(data)); }
-  catch (e) { console.error('自社情報保存エラー:', e); }
-}
 
 function getEnv() {
   const env = window.ENV || {};
@@ -34,34 +20,148 @@ function getEnv() {
   };
 }
 
-window.CFG = { company: loadCompany(), ...getEnv() };
+window.CFG = { company: { ...DEFAULT_COMPANY }, ...getEnv() };
+
+// ── Supabaseからcompany_settings読み込み ──
+async function loadCompanyFromDB() {
+  if (!isDbReady()) return;
+  try {
+    const client = _supabase;
+    const { data, error } = await client
+      .from('company_settings')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) { console.warn('company_settings読み込みエラー:', error.message); return; }
+    if (data) {
+      window.CFG.company = {
+        name:         data.name         || '',
+        zip:          data.zip          || '',
+        addr:         data.addr         || '',
+        tel:          data.tel          || '',
+        fax:          data.fax          || '',
+        email:        data.email        || '',
+        regNo:        data.reg_no       || '',
+        bank:         data.bank         || '',
+        account:      data.account      || '',
+        holder:       data.holder       || '',
+        taxRate:      data.tax_rate     ?? 10,
+        dueDays:      data.due_days     ?? 30,
+        stampDataUrl: data.stamp_data_url || '',
+      };
+      applyConfigToForm();
+      console.log('✅ 自社情報をSupabaseから読み込みました');
+    }
+  } catch(e) {
+    console.warn('company_settings取得失敗:', e);
+  }
+}
+
+// ── Supabaseへcompany_settings保存 ──
+async function saveCompany() {
+  const get = (id) => document.getElementById(id)?.value?.trim() || '';
+  const company = {
+    name:    get('co-name'),   zip:     get('co-zip'),  addr:    get('co-addr'),
+    tel:     get('co-tel'),    fax:     get('co-fax'),  email:   get('co-email'),
+    regNo:   get('co-regno'),  bank:    get('co-bank'),
+    account: get('co-account'), holder: get('co-holder'),
+    taxRate: Number(get('co-tax')) || 10,
+    dueDays: Number(get('co-due')) || 30,
+    stampDataUrl: window.CFG.company.stampDataUrl || '',
+  };
+
+  // 印鑑プレビューから最新のdataURLを取得
+  const previewImg = document.getElementById('co-stamp-preview');
+  if (previewImg && previewImg.src && previewImg.src.startsWith('data:')) {
+    company.stampDataUrl = previewImg.src;
+  }
+
+  window.CFG.company = company;
+
+  if (!isDbReady()) {
+    toast('Supabase未接続のため保存できません', '⚠️', 'error');
+    return;
+  }
+
+  try {
+    const payload = {
+      id:             1,
+      name:           company.name,
+      zip:            company.zip,
+      addr:           company.addr,
+      tel:            company.tel,
+      fax:            company.fax,
+      email:          company.email,
+      reg_no:         company.regNo,
+      bank:           company.bank,
+      account:        company.account,
+      holder:         company.holder,
+      tax_rate:       company.taxRate,
+      due_days:       company.dueDays,
+      stamp_data_url: company.stampDataUrl,
+      updated_at:     new Date().toISOString(),
+    };
+    const { error } = await _supabase
+      .from('company_settings')
+      .upsert(payload, { onConflict: 'id' });
+    if (error) throw error;
+    toast('自社情報を保存しました', '✅', 'success');
+  } catch(e) {
+    toast('保存失敗: ' + (e.message || e), '❌', 'error');
+  }
+}
 
 function applyConfigToForm() {
   const c = window.CFG.company;
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
   set('co-name', c.name); set('co-zip', c.zip); set('co-addr', c.addr);
-  set('co-tel', c.tel); set('co-fax', c.fax); set('co-email', c.email); set('co-regno', c.regNo); set('co-bank', c.bank);
+  set('co-tel', c.tel); set('co-fax', c.fax); set('co-email', c.email);
+  set('co-regno', c.regNo); set('co-bank', c.bank);
   set('co-account', c.account); set('co-holder', c.holder);
   set('co-tax', c.taxRate); set('co-due', c.dueDays);
+  // 印鑑プレビュー
+  const preview = document.getElementById('co-stamp-preview');
+  const noStamp = document.getElementById('co-stamp-none');
+  if (preview && c.stampDataUrl) {
+    preview.src = c.stampDataUrl;
+    preview.style.display = 'block';
+    if (noStamp) noStamp.style.display = 'none';
+  } else if (preview) {
+    preview.style.display = 'none';
+    if (noStamp) noStamp.style.display = 'block';
+  }
 }
 
-function saveCompany() {
-  const get = (id) => document.getElementById(id)?.value?.trim() || '';
-  const company = {
-    name: get('co-name'), zip: get('co-zip'), addr: get('co-addr'),
-    tel: get('co-tel'), fax: get('co-fax'), email: get('co-email'), regNo: get('co-regno'), bank: get('co-bank'),
-    account: get('co-account'), holder: get('co-holder'),
-    taxRate: Number(get('co-tax')) || 10, dueDays: Number(get('co-due')) || 30,
+// 印鑑画像選択処理
+function onStampFileChange(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    // Canvas で 100x100 にリサイズ
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 100; canvas.height = 100;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, 100, 100);
+      const dataUrl = canvas.toDataURL('image/png');
+      window.CFG.company.stampDataUrl = dataUrl;
+      const preview = document.getElementById('co-stamp-preview');
+      const noStamp = document.getElementById('co-stamp-none');
+      if (preview) { preview.src = dataUrl; preview.style.display = 'block'; }
+      if (noStamp) noStamp.style.display = 'none';
+      toast('印鑑画像を読み込みました（保存するには「設定を保存」を押してください）', '🖋️');
+    };
+    img.src = e.target.result;
   };
-  window.CFG.company = company;
-  saveCompanyToStorage(company);
-  toast('自社情報を保存しました', '✅', 'success');
+  reader.readAsDataURL(file);
 }
 
 async function testSupabaseConnection() {
   const { supabaseUrl, supabaseAnonKey } = window.CFG;
   if (!supabaseUrl || !supabaseAnonKey) {
-    toast('Supabase環境変数が未設定です（Netlify管理画面で設定）', '⚠️');
+    toast('Supabase環境変数が未設定です', '⚠️');
     return;
   }
   try {

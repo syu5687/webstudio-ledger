@@ -38,42 +38,40 @@ let _statusFilter = 'all';
 
 /* ── INIT ── */
 async function init() {
-  // まずデモデータをセットしてすぐに画面を表示
-  loadDemoData();
   applyConfigToForm();
-  renderTable();
-  updateKPI();
-  updateOrderBadge();
-  renderClients();
-  renderInvoiceList();
-  populateYearFilter();
-  hideLoading();
 
-  // Supabase接続はバックグラウンドで試みる
-  try {
-    const { supabaseUrl, supabaseAnonKey } = window.CFG || {};
-    if (supabaseUrl && supabaseAnonKey && typeof supabase !== 'undefined') {
+  const { supabaseUrl, supabaseAnonKey } = window.CFG || {};
+  const hasSupabase = supabaseUrl && supabaseAnonKey && typeof supabase !== 'undefined';
+
+  if (!hasSupabase) {
+    // Supabase未設定時はデモデータで即表示
+    loadDemoData();
+    renderTable(); updateKPI(); updateOrderBadge(); renderClients(); renderInvoiceList(); populateYearFilter();
+    hideLoading();
+  } else {
+    // Supabase設定済み：DB取得後に表示（デモデータは一切表示しない）
+    try {
       const connected = initSupabase();
       if (connected) {
         await Promise.race([
           Promise.all([dbFetchProjects(), dbFetchClients(), dbFetchDomains()]),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
         ]);
-        renderTable(); updateKPI(); updateOrderBadge(); renderClients();
+        await loadCompanyFromDB();  // 自社情報をSupabaseから取得
+        renderTable(); updateKPI(); updateOrderBadge(); renderClients(); renderInvoiceList(); populateYearFilter();
         subscribeToOrders((p) => {
           toast(`🎉 新受注！「${p.name}」`, '🎉', 'success');
           updateOrderBadge(); refreshData();
         });
       }
+    } catch(e) {
+      console.warn('DB接続スキップ:', e.message);
+      updateDbStatus(false, 'デモ');
     }
-  } catch(e) {
-    console.warn('DB接続スキップ:', e.message);
-    updateDbStatus(false, 'デモ');
+    hideLoading();
   }
 
   handleUrlOrder();
-  return; // 以下は旧コードの重複実行を防ぐ
-
 }
 
 function setLoadingMsg(msg) {
