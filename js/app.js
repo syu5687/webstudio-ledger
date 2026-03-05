@@ -484,10 +484,24 @@ async function saveProject() {
       _cache.projects.unshift({ ...data, id: saved.id });
     }
 
-    // 請求書作成画面からの保留処理があれば確定（ドメイン・ホスティングのステータスを更新）
+    // 請求書作成画面からの保留処理があれば確定
     if (_pendingBilling) {
       const pb = _pendingBilling;
       _pendingBilling = null;
+
+      // 既存案件のステータスを「請求済」に変更（先頭案件はsaveProjectで保存済みなので2件目以降のみ）
+      const remainingProjIds = pb.checkedProjIds.filter(pid => pid !== window._editingProjectId);
+      for (const pid of remainingProjIds) {
+        const proj = (_cache.projects||[]).find(p => p.id === pid);
+        if (!proj) continue;
+        const newLines = [...(proj.lines||[]), ...pb.extraLines];
+        const updData = { ...proj, status: 'invoiced', lines: newLines, invNo: proj.invNo || pb.invNo };
+        const s = await dbSaveProject(updData);
+        const idx = (_cache.projects||[]).findIndex(p => p.id === pid);
+        if (idx >= 0) _cache.projects[idx] = s || { ..._cache.projects[idx], status: 'invoiced', lines: newLines };
+      }
+
+      // ドメイン → 請求済
       for (const did of pb.checkedDomainIds) {
         const d = (_cache.domains||[]).find(x => x.id === did);
         if (!d) continue;
@@ -495,6 +509,8 @@ async function saveProject() {
         const idx = (_cache.domains||[]).findIndex(x => x.id === did);
         if (idx >= 0) _cache.domains[idx].bill_status = 'invoiced';
       }
+
+      // ホスティング → 毎月はリセット、それ以外は請求済
       for (const hid of pb.checkedHostingIds) {
         const h = (_cache.hostings||[]).find(x => x.id === hid);
         if (!h) continue;
