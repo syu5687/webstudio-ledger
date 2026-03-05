@@ -88,7 +88,7 @@
     <div class="topbar">
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-2300</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260305-2310</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -251,6 +251,12 @@
                   <div id="billingDomainsList"></div>
                 </div>
 
+                <!-- 請求予定ホスティング -->
+                <div id="billingHostingsSection" style="margin-top:20px">
+                  <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">🖥️ 請求予定ホスティング</div>
+                  <div id="billingHostingsList"></div>
+                </div>
+
                 <!-- 合計プレビュー -->
                 <div id="billingTotalPreview" style="margin-top:20px;padding:16px;background:var(--surface3);border-radius:8px;border:1px solid var(--border)">
                   <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px">
@@ -383,6 +389,7 @@
                 <th style="text-align:center">請求月</th>
                 <th style="text-align:right">月額</th>
                 <th style="text-align:right">年額</th>
+                <th style="text-align:center">請求</th>
                 <th></th>
               </tr>
             </thead>
@@ -874,10 +881,20 @@
             <label class="form-label">請求月</label>
             <select class="form-control" id="ht-billing">
               <option value="">未設定</option>
+              <option value="0">毎月</option>
               <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
               <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
               <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
               <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">請求ステータス</label>
+            <select class="form-control" id="ht-bill-status">
+              <option value="">未設定</option>
+              <option value="pending">請求予定</option>
+              <option value="invoiced">請求済</option>
+              <option value="paid">入金済</option>
             </select>
           </div>
           <div class="form-group">
