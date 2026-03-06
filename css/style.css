@@ -32,7 +32,7 @@ body {
 /* ── SIDEBAR ── */
 .sidebar {
   width: 220px;
-  min-height: 100vh;
+  height: 100vh;
   background: var(--ink);
   color: #fff;
   display: flex;
@@ -40,6 +40,8 @@ body {
   position: fixed;
   left: 0; top: 0;
   z-index: 100;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .logo { padding: 28px 20px 20px; border-bottom: 1px solid #2a2a32; }
 .logo-mark { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 6px; }
@@ -245,6 +247,11 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* サイドバーのスクロールバーは暗色系で目立たなく */
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: #2a2a32; border-radius: 4px; }
 
 /* ============================================================
    KANBAN BOARD
