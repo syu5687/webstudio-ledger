@@ -610,3 +610,10 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     padding: 10px;
   }
 }
+
+/* ── 取引先モーダル：担当者行 ── */
+.contact-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+@media (max-width: 600px) {
+  .contact-row { grid-template-columns: 1fr 1fr; }
+  .contact-row input:nth-child(3) { grid-column: 1 / 3; }
+}

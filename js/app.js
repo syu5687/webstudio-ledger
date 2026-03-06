@@ -430,6 +430,7 @@ async function openNewProject() {
   document.getElementById('p-inv-date').value = '';
 
   populateClientSelect();
+  populateRecipientSelect('', '', '');
   clearLineItems();
   addLineItem();
   updateStatusFlow('estimate_request');
@@ -458,7 +459,7 @@ function openEditProject(id) {
   document.getElementById('p-inv-date').value = p.invDate || '';
 
   populateClientSelect(p.clientId);
-  clearLineItems();
+  populateRecipientSelect(p.clientId, p.recipientName || '', p.recipientEmail || '');
 
   // ドメイン合算モードの場合は合算した明細を使う
   const merge = _domainInvoiceMerge;
@@ -511,6 +512,7 @@ async function saveProject() {
       invDate:  document.getElementById('p-inv-date')?.value || null,
       lines: collectLines(),
       costLines: collectCostLines(),
+      ...(() => { const r = collectRecipient(); return { recipientName: r.name, recipientEmail: r.email }; })(),
       orderRoute: window._editingProjectId ?
         (_cache.projects.find(p => p.id === window._editingProjectId)?.orderRoute || '手動登録') :
         '手動登録',
@@ -638,10 +640,14 @@ function renderClients() {
   const list = _cache.clients.filter(c => !search || c.name.toLowerCase().includes(search));
   tbody.innerHTML = list.map(c => {
     const cnt = _cache.projects.filter(p => p.clientId === c.id).length;
+    // 担当者：contactsがあればバッジ表示、なければ旧フィールドfallback
+    let contacts = Array.isArray(c.contacts) ? c.contacts : [];
+    if (contacts.length === 0 && (c.contact || c.email)) contacts = [{ name: c.contact||'', email: c.email||'' }];
+    const contactHtml = contacts.length === 0 ? '—' :
+      contacts.map(ct => `<span style="display:inline-block;background:var(--surface2,#f0ede8);border-radius:4px;padding:1px 8px;font-size:11px;margin:1px">${ct.name||ct.email||''}</span>`).join('');
     return `<tr onclick="openEditClient('${c.id}')">
       <td style="font-weight:500">${c.name}</td>
-      <td>${c.contact||'—'}</td>
-      <td><a href="mailto:${c.email}" style="color:var(--accent2)" onclick="event.stopPropagation()">${c.email||'—'}</a></td>
+      <td>${contactHtml}</td>
       <td>${c.tel||'—'}</td>
       <td class="font-mono">${cnt}</td>
       <td><div class="row-actions"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditClient('${c.id}')">編集</button></div></td>
@@ -649,13 +655,102 @@ function renderClients() {
   }).join('');
 }
 
+/* ── 取引先モーダル：複数担当者 ── */
+function renderContactRows(contacts) {
+  const wrap = document.getElementById('contactRows');
+  if (!wrap) return;
+  if (contacts.length === 0) contacts = [{ name: '', email: '', title: '' }];
+  wrap.innerHTML = contacts.map((c, i) => `
+    <div class="contact-row" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center">
+      <input class="form-control" placeholder="担当者名" value="${c.name||''}" data-field="name">
+      <input class="form-control" placeholder="役職・部署" value="${c.title||''}" data-field="title">
+      <input class="form-control" placeholder="メールアドレス" type="email" value="${c.email||''}" data-field="email">
+      <button onclick="this.closest('.contact-row').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px 8px">×</button>
+    </div>`).join('');
+}
+function addContactRow() {
+  const wrap = document.getElementById('contactRows');
+  if (!wrap) return;
+  const row = document.createElement('div');
+  row.className = 'contact-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center';
+  row.innerHTML = `
+    <input class="form-control" placeholder="担当者名" data-field="name">
+    <input class="form-control" placeholder="役職・部署" data-field="title">
+    <input class="form-control" placeholder="メールアドレス" type="email" data-field="email">
+    <button onclick="this.closest('.contact-row').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px 8px">×</button>`;
+  wrap.appendChild(row);
+}
+function collectContactRows() {
+  return [...document.querySelectorAll('.contact-row')].map(row => ({
+    name:  row.querySelector('[data-field="name"]')?.value?.trim()  || '',
+    title: row.querySelector('[data-field="title"]')?.value?.trim() || '',
+    email: row.querySelector('[data-field="email"]')?.value?.trim() || '',
+  })).filter(c => c.name || c.email);
+}
+
+/* ── 案件モーダル：送り先担当者セレクト ── */
+function populateRecipientSelect(clientId, recipientName, recipientEmail) {
+  const sel = document.getElementById('p-recipient');
+  const manual = document.getElementById('p-recipient-manual');
+  if (!sel) return;
+  const client = _cache.clients.find(c => c.id === clientId);
+  let contacts = Array.isArray(client?.contacts) ? client.contacts : [];
+  if (contacts.length === 0 && (client?.contact || client?.email)) {
+    contacts = [{ name: client.contact || '', email: client.email || '', title: '' }];
+  }
+  sel.innerHTML = '<option value="">-- 担当者を選択 --</option>' +
+    contacts.map((c, i) => {
+      const label = [c.name, c.title].filter(Boolean).join(' / ');
+      const val = JSON.stringify({ name: c.name, email: c.email });
+      const selected = c.name === recipientName ? ' selected' : '';
+      return `<option value='${val}'${selected}>${label}${c.email ? ' &lt;'+c.email+'&gt;' : ''}</option>`;
+    }).join('') +
+    '<option value="__manual__">✏️ 直接入力</option>';
+
+  // 既存のrecipient復元
+  if (recipientName || recipientEmail) {
+    const found = contacts.find(c => c.name === recipientName);
+    if (!found) {
+      sel.value = '__manual__';
+      if (manual) { manual.style.display = 'grid'; }
+      if (document.getElementById('p-recipient-name')) document.getElementById('p-recipient-name').value = recipientName || '';
+      if (document.getElementById('p-recipient-email')) document.getElementById('p-recipient-email').value = recipientEmail || '';
+    }
+  }
+}
+function onRecipientChange(val) {
+  const manual = document.getElementById('p-recipient-manual');
+  if (!manual) return;
+  manual.style.display = val === '__manual__' ? 'grid' : 'none';
+  if (val && val !== '__manual__') {
+    try {
+      const obj = JSON.parse(val);
+      if (document.getElementById('p-recipient-name')) document.getElementById('p-recipient-name').value = obj.name || '';
+      if (document.getElementById('p-recipient-email')) document.getElementById('p-recipient-email').value = obj.email || '';
+    } catch(e) {}
+  }
+}
+function collectRecipient() {
+  const sel = document.getElementById('p-recipient');
+  if (!sel || !sel.value) return { name: '', email: '' };
+  if (sel.value === '__manual__') {
+    return {
+      name:  document.getElementById('p-recipient-name')?.value?.trim() || '',
+      email: document.getElementById('p-recipient-email')?.value?.trim() || '',
+    };
+  }
+  try { return JSON.parse(sel.value); } catch(e) { return { name: '', email: '' }; }
+}
+
 function openClientModal() {
   window._editingClientId = null;
   document.getElementById('clientModalTitle').textContent = '取引先登録';
   document.getElementById('deleteClientBtn').style.display = 'none';
-  ['cl-name','cl-contact','cl-email','cl-tel','cl-zip','cl-addr'].forEach(id => {
+  ['cl-name','cl-tel','cl-zip','cl-addr'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  renderContactRows([]);
   openModal('clientModal');
 }
 
@@ -666,22 +761,29 @@ function openEditClient(id) {
   document.getElementById('clientModalTitle').textContent = '取引先編集';
   document.getElementById('deleteClientBtn').style.display = 'inline-flex';
   document.getElementById('cl-name').value = c.name || '';
-  document.getElementById('cl-contact').value = c.contact || '';
-  document.getElementById('cl-email').value = c.email || '';
   document.getElementById('cl-tel').value = c.tel || '';
   document.getElementById('cl-zip').value = c.zip || '';
   document.getElementById('cl-addr').value = c.addr || '';
+  // 旧フォーマット（単一担当者）との互換
+  let contacts = Array.isArray(c.contacts) ? c.contacts : [];
+  if (contacts.length === 0 && (c.contact || c.email)) {
+    contacts = [{ name: c.contact || '', email: c.email || '', title: '' }];
+  }
+  renderContactRows(contacts);
   openModal('clientModal');
 }
 
 async function saveClient() {
   const name = document.getElementById('cl-name')?.value?.trim();
   if (!name) { toast('会社名を入力してください', '⚠️'); return; }
+  const contacts = collectContactRows();
   const clientData = {
     id: window._editingClientId,
     name,
-    contact: document.getElementById('cl-contact')?.value || null,
-    email: document.getElementById('cl-email')?.value || null,
+    contacts,
+    // 後方互換（1件目を代表担当者として保持）
+    contact: contacts[0]?.name || null,
+    email:   contacts[0]?.email || null,
     tel: document.getElementById('cl-tel')?.value || null,
     zip: document.getElementById('cl-zip')?.value || null,
     addr: document.getElementById('cl-addr')?.value || null,

@@ -168,9 +168,13 @@ $pdfBtn = '<button onclick="downloadPdf()" style="display:inline-block;backgroun
 <div class="page" id="printArea">
   <div class="header">
     <div style="padding-top:40px">
-      <div style="font-size:18px;font-weight:700;margin-bottom:6px"><?= htmlspecialchars($client['name'] ?? '') ?> 様</div>
-      <?php if (!empty($client['contact'])): ?>
-      <div style="font-size:13px;color:#555;margin-bottom:20px"><?= htmlspecialchars($client['contact']) ?> 様</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:6px"><?= htmlspecialchars($client['name'] ?? '') ?> 御中</div>
+      <?php
+        $recipientName = $p['recipient_name'] ?? '';
+        if (empty($recipientName)) $recipientName = $client['contact'] ?? '';
+        if (!empty($recipientName)):
+      ?>
+      <div style="font-size:13px;color:#555;margin-bottom:4px"><?= htmlspecialchars($recipientName) ?> 様</div>
       <?php endif; ?>
       <div style="margin-top:20px;font-size:13px;font-weight:600">件名：<?= htmlspecialchars($p['name'] ?? '') ?></div>
       <div style="margin-top:12px;font-size:13px"><?= $isEst ? '下記のとおりお見積申し上げます。' : '下記のとおりご請求申し上げます。' ?></div>

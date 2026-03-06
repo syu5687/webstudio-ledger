@@ -98,7 +98,7 @@
       </button>
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260306-0145</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260306-0150</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -320,7 +320,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>取引先名</th><th>担当者</th><th>メール</th><th>電話</th><th>案件数</th><th></th></tr></thead>
+            <thead><tr><th>取引先名</th><th>担当者</th><th>電話</th><th>案件数</th><th></th></tr></thead>
             <tbody id="clientTableBody"></tbody>
           </table>
         </div>
@@ -794,7 +794,7 @@
             </select>
           </div>
           <div class="form-group form-full"><label class="form-label">案件名 *</label><input class="form-control" id="p-name" placeholder="コーポレートサイトリニューアル"></div>
-          <div class="form-group"><label class="form-label">取引先 *</label><select class="form-control" id="p-client"></select></div>
+          <div class="form-group"><label class="form-label">取引先 *</label><select class="form-control" id="p-client" onchange="populateRecipientSelect(this.value,'','')"></select></div>
           <div class="form-group"><label class="form-label">担当者</label><input class="form-control" id="p-manager" placeholder="山田 太郎"></div>
           <div class="form-group"><label class="form-label">受注日</label><input class="form-control" type="date" id="p-order-date"></div>
           <div class="form-group"><label class="form-label">納期</label><input class="form-control" type="date" id="p-due-date"></div>
@@ -827,6 +827,16 @@
           <div class="form-group"><label class="form-label">見積日</label><input class="form-control" id="p-est-date" type="date"></div>
           <div class="form-group"><label class="form-label">請求書番号</label><input class="form-control" id="p-inv-no" readonly></div>
           <div class="form-group"><label class="form-label">請求日</label><input class="form-control" id="p-inv-date" type="date"></div>
+          <div class="form-group form-full">
+            <label class="form-label">送り先担当者</label>
+            <select class="form-control" id="p-recipient" onchange="onRecipientChange(this.value)">
+              <option value="">-- 担当者を選択 --</option>
+            </select>
+            <div id="p-recipient-manual" style="display:none;margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <input class="form-control" id="p-recipient-name" placeholder="担当者名">
+              <input class="form-control" id="p-recipient-email" placeholder="メールアドレス" type="email">
+            </div>
+          </div>
         </div>
         <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;letter-spacing:0.05em;text-transform:uppercase">明細</div>
         <table class="line-table">
@@ -952,7 +962,7 @@
 
 <!-- ===== MODAL: 取引先 ===== -->
 <div class="overlay" id="clientModal">
-  <div class="modal" style="max-width:560px">
+  <div class="modal" style="max-width:600px">
     <div class="modal-header">
       <span class="modal-title" id="clientModalTitle">取引先登録</span>
       <button class="modal-close" onclick="closeModal('clientModal')">✕</button>
@@ -960,11 +970,16 @@
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group form-full"><label class="form-label">会社名 *</label><input class="form-control" id="cl-name" placeholder="株式会社サンプル"></div>
-        <div class="form-group"><label class="form-label">担当者名</label><input class="form-control" id="cl-contact" placeholder="鈴木 一郎"></div>
-        <div class="form-group"><label class="form-label">メールアドレス</label><input class="form-control" id="cl-email" type="email"></div>
         <div class="form-group"><label class="form-label">電話番号</label><input class="form-control" id="cl-tel"></div>
         <div class="form-group"><label class="form-label">郵便番号</label><input class="form-control" id="cl-zip"></div>
         <div class="form-group form-full"><label class="form-label">住所</label><input class="form-control" id="cl-addr"></div>
+      </div>
+      <div style="margin-top:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.05em">👤 担当者（複数登録可）</div>
+          <button class="btn btn-outline btn-sm" onclick="addContactRow()">＋ 担当者追加</button>
+        </div>
+        <div id="contactRows"></div>
       </div>
     </div>
     <div class="modal-footer">
