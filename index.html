@@ -94,7 +94,7 @@
     <div class="topbar">
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260306-0130</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260306-0135</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -235,8 +235,8 @@
             <div id="billingRightEmpty" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px">
               ← 左から取引先を選択してください
             </div>
-            <div id="billingRightContent" style="display:none;flex-direction:column;height:100%">
-              <div style="padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:between;gap:12px">
+            <div id="billingRightContent" style="display:none;flex-direction:column;height:100%;overflow:hidden">
+              <div style="padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0">
                 <div>
                   <div id="billingClientName" style="font-size:16px;font-weight:700"></div>
                   <div id="billingClientSub" style="font-size:12px;color:var(--muted);margin-top:2px"></div>
