@@ -46,7 +46,7 @@ body {
 .logo { padding: 28px 20px 20px; border-bottom: 1px solid #2a2a32; }
 .logo-mark { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 6px; }
 .logo-name { font-size: 15px; font-weight: 700; line-height: 1.2; }
-.nav { padding: 16px 0; flex: 1; }
+.nav { padding: 16px 0; flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
 .nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 20px; font-size: 13px; color: #aaa; cursor: pointer; transition: all 0.15s; border-left: 3px solid transparent; }
 .nav-item:hover { color: #fff; background: rgba(255,255,255,0.05); }
 .nav-item.active { color: #fff; border-left-color: var(--accent); background: rgba(212,69,26,0.1); }
@@ -115,6 +115,10 @@ td:first-child { padding-left: 18px; }
 .amount { font-family: 'Space Mono', monospace; text-align: right; }
 .row-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
 tbody tr:hover .row-actions { opacity: 1; }
+/* タッチデバイスでは常時表示 */
+@media (hover: none) {
+  .row-actions { opacity: 1; }
+}
 
 /* ── BADGE ── */
 .badge { display: inline-block; padding: 3px 9px; border-radius: 3px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
@@ -252,6 +256,9 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .sidebar::-webkit-scrollbar { width: 4px; }
 .sidebar::-webkit-scrollbar-track { background: transparent; }
 .sidebar::-webkit-scrollbar-thumb { background: #2a2a32; border-radius: 4px; }
+.nav::-webkit-scrollbar { width: 4px; }
+.nav::-webkit-scrollbar-track { background: transparent; }
+.nav::-webkit-scrollbar-thumb { background: #2a2a32; border-radius: 4px; }
 
 /* ============================================================
    KANBAN BOARD
