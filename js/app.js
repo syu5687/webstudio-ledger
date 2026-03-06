@@ -102,7 +102,10 @@ async function refreshData() {
 function showView(view) {
   ['ledger','orders','billing','invoice','clients','domains','hostings','monthly','expenses','dashboard','board','own-servers','own-subscriptions','company','drive'].forEach(v => {
     const el = document.getElementById('view-'+v);
-    if (el) el.style.display = v === view ? '' : 'none';
+    if (!el) return;
+    if (v !== view) { el.style.display = 'none'; return; }
+    // driveはflexレイアウトで表示
+    el.style.display = v === 'drive' ? 'flex' : '';
   });
   document.querySelectorAll('.nav-item[data-view]').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
@@ -118,12 +121,13 @@ function showView(view) {
   if (view === 'dashboard') renderDashboard();
   if (view === 'expenses') renderExpenses();
   if (view === 'drive') {
+    const driveEl = document.getElementById('view-drive');
+    if (driveEl) driveEl.style.display = 'flex';
     // iframeロード失敗時のフォールバック
     const frame = document.getElementById('driveFrame');
     const blocked = document.getElementById('driveBlockedMsg');
     if (frame && blocked) {
       frame.onerror = () => { frame.style.display='none'; blocked.style.display='flex'; };
-      // 3秒後にiframeが空だったらフォールバック表示
       setTimeout(() => {
         try {
           if (frame.contentDocument && frame.contentDocument.body &&
