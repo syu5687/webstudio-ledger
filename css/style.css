@@ -366,3 +366,240 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .kanban-col-body.empty-col .kanban-drop-hint {
   display: block;
 }
+
+/* ============================================================
+   RESPONSIVE / SP SUPPORT
+   ============================================================ */
+
+/* ── ハンバーガーボタン（SP用） ── */
+.menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.menu-toggle span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--ink);
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+
+/* ── オーバーレイ（SP でサイドバー開いたとき） ── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 99;
+}
+.sidebar-overlay.active { display: block; }
+
+/* ── タブレット（幅 900px 以下） ── */
+@media (max-width: 900px) {
+  .sidebar {
+    width: 200px;
+  }
+  .main {
+    margin-left: 200px;
+  }
+  .kpi-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .content {
+    padding: 20px;
+  }
+}
+
+/* ── スマートフォン（幅 768px 以下） ── */
+@media (max-width: 768px) {
+
+  /* サイドバー：左外に隠してスライドイン */
+  .sidebar {
+    width: 260px;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 200;
+    overflow-y: auto;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* メインは全幅 */
+  .main {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  /* トップバーにハンバーガー表示 */
+  .menu-toggle {
+    display: flex;
+  }
+  .topbar {
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .page-title {
+    font-size: 15px;
+    flex: 1;
+  }
+
+  /* コンテンツ余白を縮小 */
+  .content {
+    padding: 14px;
+  }
+
+  /* KPI カードを2列に */
+  .kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .kpi-count {
+    font-size: 22px;
+  }
+
+  /* ツールバーを縦積み */
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .search-box {
+    min-width: unset;
+    width: 100%;
+  }
+  .toolbar .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .toolbar select,
+  .toolbar .form-control {
+    width: 100% !important;
+  }
+
+  /* テーブルを横スクロール可能に */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table-wrap table {
+    min-width: 600px;
+  }
+
+  /* モーダルを全画面に近い形で */
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 95vh;
+    margin: auto 0 0;
+    border-radius: 12px 12px 0 0;
+  }
+  .overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal-body {
+    padding: 16px;
+    max-height: 65vh;
+    overflow-y: auto;
+  }
+  .modal-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  .modal-footer .btn {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  /* フォームグリッドを1列に */
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .form-full {
+    grid-column: 1 !important;
+  }
+
+  /* タブは小さめに */
+  .tabs {
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+  .tab {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  /* 請求書作成：縦積みに */
+  #view-billing > div[style*="grid-template-columns"] {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+  }
+  #billingClientList-wrap,
+  #view-billing .sidebar-panel {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  /* ダッシュボードグラフ縦積み */
+  #view-dashboard > div[style*="grid-template-columns:1fr 1fr"] {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* 案件台帳の明細テーブル */
+  .line-table {
+    font-size: 12px;
+  }
+
+  /* ステータスフロー折り返し */
+  .status-flow {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .status-step {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  /* ページタイトル周り */
+  .topbar-right {
+    gap: 6px;
+  }
+  .topbar-right .btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  /* カンバンボード横スクロール */
+  .kanban-wrap {
+    height: auto;
+    min-height: 400px;
+    padding-bottom: 20px;
+  }
+}
+
+/* ── 超小型SP（375px以下） ── */
+@media (max-width: 375px) {
+  .kpi-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .kpi-count {
+    font-size: 18px;
+  }
+  .content {
+    padding: 10px;
+  }
+}

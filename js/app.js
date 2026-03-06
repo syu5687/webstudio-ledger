@@ -99,7 +99,23 @@ async function refreshData() {
 }
 
 /* ── VIEW ── */
+/* ── SP サイドバー開閉 ── */
+function toggleSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.getElementById('sidebarOverlay');
+  if (!sb) return;
+  const isOpen = sb.classList.toggle('open');
+  if (ov) ov.classList.toggle('active', isOpen);
+}
+function closeSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.getElementById('sidebarOverlay');
+  if (sb) sb.classList.remove('open');
+  if (ov) ov.classList.remove('active');
+}
+
 function showView(view) {
+  closeSidebar(); // SP でメニュー選択後に自動的に閉じる
   ['ledger','orders','billing','invoice','clients','domains','hostings','monthly','expenses','dashboard','board','own-servers','own-subscriptions','company','drive'].forEach(v => {
     const el = document.getElementById('view-'+v);
     if (!el) return;

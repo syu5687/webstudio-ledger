@@ -22,6 +22,7 @@
 </div>
 <style>@keyframes dot{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}</style>
 
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <div class="shell" id="appShell" style="display:none">
   <!-- SIDEBAR -->
   <aside class="sidebar">
@@ -92,9 +93,12 @@
   <!-- MAIN -->
   <div class="main">
     <div class="topbar">
+      <button class="menu-toggle" onclick="toggleSidebar()" aria-label="メニュー">
+        <span></span><span></span><span></span>
+      </button>
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260306-0135</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260306-0140</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
