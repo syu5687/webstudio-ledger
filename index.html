@@ -98,7 +98,7 @@
       </button>
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260306-0155</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260306-0160</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -617,7 +617,7 @@
       </div>
 
       <!-- OWN SERVER MODAL -->
-      <div class="overlay" id="ownServerModal" onclick="if(event.target===this)closeModal('ownServerModal')">
+      <div class="overlay" id="ownServerModal">
         <div class="modal" style="max-width:500px">
           <div class="modal-header">
             <div class="modal-title" id="ownServerModalTitle">サーバー追加</div>
@@ -653,7 +653,7 @@
       </div>
 
       <!-- OWN SUBSCRIPTION MODAL -->
-      <div class="overlay" id="ownSubModal" onclick="if(event.target===this)closeModal('ownSubModal')">
+      <div class="overlay" id="ownSubModal">
         <div class="modal" style="max-width:500px">
           <div class="modal-header">
             <div class="modal-title" id="ownSubModalTitle">サブスク追加</div>
@@ -991,7 +991,7 @@
 </div>
 
   <!-- HOSTING MODAL -->
-  <div class="overlay" id="hostingModal" onclick="if(event.target===this)closeModal('hostingModal')">
+  <div class="overlay" id="hostingModal">
     <div class="modal" style="max-width:520px">
       <div class="modal-header">
         <div class="modal-title" id="hostingModalTitle">ホスティング追加</div>
@@ -1068,7 +1068,7 @@
   </div>
 
   <!-- DOMAIN MODAL -->
-  <div class="overlay" id="domainModal" onclick="if(event.target===this)closeModal('domainModal')">
+  <div class="overlay" id="domainModal">
     <div class="modal" style="max-width:500px">
       <div class="modal-header">
         <div class="modal-title" id="domainModalTitle">ドメイン追加</div>
@@ -1139,7 +1139,7 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- 経費モーダル -->
-<div class="overlay" id="expenseModal" onclick="if(event.target===this)closeModal('expenseModal')">
+<div class="overlay" id="expenseModal">
   <div class="modal" style="max-width:520px">
     <div class="modal-header">
       <div class="modal-title" id="expenseModalTitle">経費追加</div>

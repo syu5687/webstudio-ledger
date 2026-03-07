@@ -822,9 +822,11 @@ function closeModal(id) {
   document.getElementById(id)?.classList.remove('open');
 }
 
-document.querySelectorAll('.overlay').forEach(el => {
-  el.addEventListener('click', (e) => { if (e.target === el) el.classList.remove('open'); });
-});
+// オーバーレイクリックでは閉じない（入力内容を保護）
+// 閉じるには ✕ボタン または キャンセルボタンを使用
+// document.querySelectorAll('.overlay').forEach(el => {
+//   el.addEventListener('click', (e) => { if (e.target === el) el.classList.remove('open'); });
+// });
 
 function switchTab(prefix, tab) {
   const tabs = { project: ['info','estimate','memo'] };
