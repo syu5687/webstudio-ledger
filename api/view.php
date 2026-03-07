@@ -253,7 +253,7 @@ $pdfBtn = '<button onclick="downloadPdf()" style="display:inline-block;backgroun
 <?php endif; ?>
 
   <?= $orderBtn ?>
-  <div class="no-print" style="margin-top:32px;padding:20px;border-top:2px solid #e8e4de;text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+  <div class="no-print" id="pdfActionBar" style="margin-top:32px;padding:20px;border-top:2px solid #e8e4de;text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
     <?= $pdfBtn ?>
     <button onclick="window.close()" style="background:#e8e4de;color:#444;padding:10px 24px;border-radius:6px;font-size:14px;font-weight:600;border:none;cursor:pointer">✕ 閉じる</button>
   </div>
@@ -262,7 +262,8 @@ $pdfBtn = '<button onclick="downloadPdf()" style="display:inline-block;backgroun
 <script>
 function downloadPdf() {
   const btn = document.querySelector('[onclick="downloadPdf()"]');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 生成中...'; }
+  const bar = document.getElementById('pdfActionBar');
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ 生成中...'; }
 
   const el = document.getElementById('printArea');
   const opt = {
@@ -275,9 +276,11 @@ function downloadPdf() {
   };
 
   html2pdf().set(opt).from(el).save().then(() => {
-    if (btn) { btn.disabled = false; btn.textContent = '📥 PDFダウンロード'; }
+    // ダウンロード完了 → ボタンエリアを非表示
+    if (bar) bar.style.display = 'none';
   }).catch(() => {
-    if (btn) { btn.disabled = false; btn.textContent = '📥 PDFダウンロード'; }
+    // エラー時はボタンを元に戻す
+    if (btn) { btn.disabled = false; btn.innerHTML = '📥 PDFダウンロード'; }
   });
 }
 </script>

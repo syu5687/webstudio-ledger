@@ -332,9 +332,18 @@ async function executeSendEmail() {
 
   if (result.success) {
     closeModal('emailModal');
-    toast(`メールを送信しました（${to}）`, '📧', 'success');
-    if (isEstimate && orderUrl) {
-      setTimeout(() => showEstUrlPanel(orderUrl), 600);
+    // 請求書作成モードの場合は確定処理を実行
+    const isBillingMode = document.getElementById('sendEmailBtn')?.dataset?.billingMode === '1';
+    if (isBillingMode && typeof executeBillingFinalize === 'function') {
+      // sendEmailBtnを元に戻す
+      const sendBtn = document.getElementById('sendEmailBtn');
+      if (sendBtn) { sendBtn.textContent = '📧 送信する'; delete sendBtn.dataset.billingMode; }
+      await executeBillingFinalize(null);
+    } else {
+      toast(`メールを送信しました（${to}）`, '📧', 'success');
+      if (isEstimate && orderUrl) {
+        setTimeout(() => showEstUrlPanel(orderUrl), 600);
+      }
     }
   } else {
     if (statusEl) statusEl.textContent = '送信失敗: ' + result.error;
