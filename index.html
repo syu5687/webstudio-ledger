@@ -98,7 +98,7 @@
       </button>
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260307-0175</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260309-0180</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -224,67 +224,60 @@
       <div id="view-billing" style="display:none">
         <div class="toolbar" style="margin-bottom:0">
           <h3 style="font-size:15px;font-weight:700;margin:0">請求書作成</h3>
-          <div style="font-size:12px;color:var(--muted)">納品済案件・請求予定ドメインをまとめて1枚の請求書に</div>
+          <div style="font-size:12px;color:var(--muted)">納品済案件をまとめて請求書として送付</div>
         </div>
-        <div style="display:grid;grid-template-columns:260px 1fr;gap:16px;margin-top:16px;height:calc(100vh - 160px)">
 
-          <!-- 左：クライアント一覧 -->
-          <div style="background:var(--surface2);border-radius:10px;overflow-y:auto;border:1px solid var(--border)">
-            <div style="padding:12px 16px;font-size:12px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface2)">請求可能な取引先</div>
-            <div id="billingClientList"></div>
+        <!-- 3カラムグリッド：取引先 | 案件リスト | プレビュー -->
+        <div style="display:grid;grid-template-columns:220px 320px 1fr;gap:0;margin-top:16px;height:calc(100vh - 150px);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+
+          <!-- A列：取引先リスト -->
+          <div style="background:var(--surface2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
+            <div style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);letter-spacing:.05em;background:var(--surface2);flex-shrink:0">請求可能な取引先</div>
+            <div id="billingClientList" style="flex:1;overflow-y:auto"></div>
           </div>
 
-          <!-- 右：請求対象一覧 -->
-          <div style="background:var(--surface2);border-radius:10px;border:1px solid var(--border);display:flex;flex-direction:column">
-            <div id="billingRightEmpty" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px">
-              ← 左から取引先を選択してください
+          <!-- B列：案件一覧 + 合計 + 送付ボタン -->
+          <div style="background:var(--surface2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
+            <div id="billingRightEmpty" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;text-align:center;padding:20px">
+              ←<br>取引先を選択
             </div>
             <div id="billingRightContent" style="display:none;flex-direction:column;height:100%;overflow:hidden">
-              <div style="padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0">
-                <div>
-                  <div id="billingClientName" style="font-size:16px;font-weight:700"></div>
-                  <div id="billingClientSub" style="font-size:12px;color:var(--muted);margin-top:2px"></div>
-                </div>
-                <button class="btn btn-primary" style="margin-left:auto" onclick="confirmBatchInvoice()">📧 請求書を送付して確定</button>
+              <!-- ヘッダー -->
+              <div style="padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0">
+                <div id="billingClientName" style="font-size:14px;font-weight:700"></div>
+                <div id="billingClientSub" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
               </div>
-              <div style="flex:1;overflow-y:auto;padding:16px">
-
-                <!-- 納品済案件 -->
-                <div id="billingProjectsSection">
-                  <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">📦 納品済案件</div>
-                  <div id="billingProjectsList"></div>
+              <!-- 案件リスト -->
+              <div style="flex:1;overflow-y:auto;padding:12px">
+                <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.05em">📦 納品済案件</div>
+                <div id="billingProjectsList"></div>
+              </div>
+              <!-- 合計 + 送付ボタン -->
+              <div style="padding:12px 14px;border-top:1px solid var(--border);background:var(--surface3);flex-shrink:0">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:3px">
+                  <span>小計</span><span id="billingSubtotal">¥0</span>
                 </div>
-
-                <!-- 請求予定ドメイン -->
-                <div id="billingDomainsSection" style="margin-top:20px">
-                  <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">🌐 請求予定ドメイン</div>
-                  <div id="billingDomainsList"></div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:8px">
+                  <span>消費税（10%）</span><span id="billingTax">¥0</span>
                 </div>
-
-                <!-- 請求予定ホスティング -->
-                <div id="billingHostingsSection" style="margin-top:20px">
-                  <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">🖥️ 請求予定ホスティング</div>
-                  <div id="billingHostingsList"></div>
+                <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;border-top:1px solid var(--border);padding-top:8px;margin-bottom:12px">
+                  <span>合計（税込）</span>
+                  <span id="billingGrand" style="color:var(--accent2)">¥0</span>
                 </div>
-
-                <!-- 合計プレビュー -->
-                <div id="billingTotalPreview" style="margin-top:20px;padding:16px;background:var(--surface3);border-radius:8px;border:1px solid var(--border)">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px">
-                    <span style="color:var(--muted)">小計</span>
-                    <span id="billingSubtotal">¥0</span>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:13px">
-                    <span style="color:var(--muted)">消費税（10%）</span>
-                    <span id="billingTax">¥0</span>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:700;border-top:1px solid var(--border);padding-top:10px">
-                    <span>合計（税込）</span>
-                    <span id="billingGrand" style="color:var(--accent2)">¥0</span>
-                  </div>
-                </div>
+                <button class="btn btn-primary" style="width:100%" onclick="confirmBatchInvoice()">📧 請求書を送付して確定</button>
               </div>
             </div>
           </div>
+
+          <!-- C列：請求書プレビュー -->
+          <div style="background:#f0f0f0;display:flex;flex-direction:column;overflow:hidden">
+            <div style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0;letter-spacing:.05em">📄 請求書プレビュー</div>
+            <div id="billingPreviewEmpty" style="flex:1;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:13px;text-align:center">
+              取引先を選択すると<br>プレビューが表示されます
+            </div>
+            <iframe id="billingPreviewFrame" style="display:none;flex:1;width:100%;border:none;background:#fff" src="about:blank"></iframe>
+          </div>
+
         </div>
       </div>
 

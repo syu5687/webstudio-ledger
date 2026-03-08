@@ -335,6 +335,7 @@ function normalizeProject(row) {
     orderedAt: row.ordered_at,
     isNewOrder: row.is_new_order || false,
     alreadyOrdered: row.already_ordered || false,
+    autoRegistered: row.auto_registered || null,
     estOpenedAt: row.est_opened_at || null,
     invOpenedAt: row.inv_opened_at || null,
     createdAt: row.created_at,
@@ -366,6 +367,7 @@ function denormalizeProject(p) {
     ordered_at: p.orderedAt || null,
     is_new_order: p.isNewOrder || false,
     already_ordered: p.alreadyOrdered || false,
+    auto_registered: p.autoRegistered || null,  // ドメイン・ホスティング自動登録時のID（重複防止）
   };
 }
 
