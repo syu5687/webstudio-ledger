@@ -463,6 +463,7 @@ function openEditProject(id) {
 
   // ドメイン合算モードの場合は合算した明細を使う
   const merge = _domainInvoiceMerge;
+  clearLineItems();  // ← 必ずクリアしてから追加
   if (merge && merge.projId === id) {
     merge.lines.forEach(l => addLineItem(l));
     _domainInvoiceMerge = null;
