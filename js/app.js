@@ -1170,12 +1170,22 @@ async function autoUpdateDomainBillStatus() {
           orderRoute: '自動登録',
           orderDate: now.toISOString().slice(0, 10),
         });
-        if (saved?.id) { _cache.projects.unshift(saved); registered++; }
+        if (saved?.id) {
+          _cache.projects.unshift(saved);
+          registered++;
+          // 案件登録成功後のみ bill_status を pending に更新
+          await dbSaveDomain({ ...d, bill_status: 'pending' });
+          const idx = (_cache.domains || []).findIndex(x => x.id === d.id);
+          if (idx >= 0) _cache.domains[idx].bill_status = 'pending';
+        }
+      } else if (dup) {
+        // 既に案件が存在する場合もpendingにしておく（UI表示用）
+        if (!d.bill_status || d.bill_status === '') {
+          await dbSaveDomain({ ...d, bill_status: 'pending' });
+          const idx = (_cache.domains || []).findIndex(x => x.id === d.id);
+          if (idx >= 0) _cache.domains[idx].bill_status = 'pending';
+        }
       }
-      // bill_status を pending に更新（UI側の管理用）
-      await dbSaveDomain({ ...d, bill_status: 'pending' });
-      const idx = (_cache.domains || []).findIndex(x => x.id === d.id);
-      if (idx >= 0) _cache.domains[idx].bill_status = 'pending';
     } catch(e) { console.warn('ドメイン自動登録エラー:', d.domain_name, e); }
   }
 
@@ -1202,11 +1212,21 @@ async function autoUpdateDomainBillStatus() {
           orderRoute: '自動登録',
           orderDate: now.toISOString().slice(0, 10),
         });
-        if (saved?.id) { _cache.projects.unshift(saved); registered++; }
+        if (saved?.id) {
+          _cache.projects.unshift(saved);
+          registered++;
+          // 案件登録成功後のみ bill_status を pending に更新
+          await dbSaveHosting({ ...h, bill_status: 'pending' });
+          const idx = (_cache.hostings || []).findIndex(x => x.id === h.id);
+          if (idx >= 0) _cache.hostings[idx].bill_status = 'pending';
+        }
+      } else if (dup) {
+        if (!h.bill_status || h.bill_status === '') {
+          await dbSaveHosting({ ...h, bill_status: 'pending' });
+          const idx = (_cache.hostings || []).findIndex(x => x.id === h.id);
+          if (idx >= 0) _cache.hostings[idx].bill_status = 'pending';
+        }
       }
-      await dbSaveHosting({ ...h, bill_status: 'pending' });
-      const idx = (_cache.hostings || []).findIndex(x => x.id === h.id);
-      if (idx >= 0) _cache.hostings[idx].bill_status = 'pending';
     } catch(e) { console.warn('ホスティング自動登録エラー:', h.service_name, e); }
   }
 
