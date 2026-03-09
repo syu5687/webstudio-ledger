@@ -439,6 +439,8 @@ async function openNewProject() {
 }
 
 function openEditProject(id) {
+  clearLineItems();  // ← 防衛的クリア（関数先頭で必ず実行）
+  clearCostLineItems();
   const p = _cache.projects.find(x => x.id === id);
   if (!p) return;
   window._editingProjectId = id;
@@ -1146,18 +1148,16 @@ async function autoUpdateDomainBillStatus() {
   const now = new Date();
   let registered = 0;
 
-  // ── ドメイン：請求月=今月 かつ bill_status未設定 ──
+  // ── ドメイン：請求月=今月 かつ 「delivered」状態の紐付き案件が未登録 ──
   const domainTargets = (_cache.domains || []).filter(d =>
-    d.billing_month === thisMonth &&
-    (!d.bill_status || d.bill_status === '')
+    d.billing_month === thisMonth
   );
   for (const d of domainTargets) {
     try {
-      // 重複チェック（同月・同ドメイン名を含む「納品済」案件が既にあればスキップ）
+      // 重複チェック（auto_registeredが一致する納品済案件が既にあればスキップ）
       const dup = (_cache.projects || []).some(p =>
-        p.clientId === d.client_id &&
-        p.status === 'delivered' &&
-        p.autoRegistered === d.id
+        p.autoRegistered === d.id &&
+        p.status === 'delivered'
       );
       if (!dup && Number(d.price) > 0) {
         const client = getClientById(d.client_id);
@@ -1179,17 +1179,15 @@ async function autoUpdateDomainBillStatus() {
     } catch(e) { console.warn('ドメイン自動登録エラー:', d.domain_name, e); }
   }
 
-  // ── ホスティング：毎月(0) or 請求月=今月 かつ bill_status未設定 ──
+  // ── ホスティング：毎月(0) or 請求月=今月 かつ 「delivered」状態の紐付き案件が未登録 ──
   const hostingTargets = (_cache.hostings || []).filter(h =>
-    (Number(h.billing_month) === 0 || h.billing_month === thisMonth) &&
-    (!h.bill_status || h.bill_status === '')
+    Number(h.billing_month) === 0 || h.billing_month === thisMonth
   );
   for (const h of hostingTargets) {
     try {
       const dup = (_cache.projects || []).some(p =>
-        p.clientId === h.client_id &&
-        p.status === 'delivered' &&
-        p.autoRegistered === h.id
+        p.autoRegistered === h.id &&
+        p.status === 'delivered'
       );
       const fee = Number(h.monthly_fee || h.annual_fee || 0);
       const unit = h.monthly_fee ? '月' : '年';
@@ -1484,6 +1482,22 @@ async function executeBillingFinalize() {
       const saved = await dbSaveProject({ ...proj, status: 'invoiced', invNo: proj.invNo || invNo });
       const idx   = (_cache.projects||[]).findIndex(p => p.id === pid);
       if (idx >= 0) _cache.projects[idx] = saved || { ..._cache.projects[idx], status: 'invoiced' };
+
+      // ドメイン/ホスティング自動登録案件の場合、bill_statusをリセット（翌月の再登録用）
+      if (proj.autoRegistered) {
+        const dom = (_cache.domains||[]).find(d => d.id === proj.autoRegistered);
+        if (dom) {
+          await dbSaveDomain({ ...dom, bill_status: 'invoiced' });
+          const di = (_cache.domains||[]).findIndex(d => d.id === dom.id);
+          if (di >= 0) _cache.domains[di].bill_status = 'invoiced';
+        }
+        const host = (_cache.hostings||[]).find(h => h.id === proj.autoRegistered);
+        if (host) {
+          await dbSaveHosting({ ...host, bill_status: 'invoiced' });
+          const hi = (_cache.hostings||[]).findIndex(h => h.id === host.id);
+          if (hi >= 0) _cache.hostings[hi].bill_status = 'invoiced';
+        }
+      }
     }
     renderTable(); updateKPI();
     _billingSelectedClientId = null;
