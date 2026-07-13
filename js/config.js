@@ -16,8 +16,10 @@ function getEnv() {
     firebaseApiKey:    env.FIREBASE_API_KEY    || '',
     firebaseProjectId: env.FIREBASE_PROJECT_ID || '',
     firebaseAppId:     env.FIREBASE_APP_ID     || '',
-    resendApiKey:    env.RESEND_API_KEY    || 're_2uUwkqYF_QELAZsUopJCY2KC3h2Ngw75J',
-    resendFromEmail: env.RESEND_FROM_EMAIL || 'estimate@nfz33.com',
+    brevoApiKey:      env.BREVO_API_KEY      || '',
+    brevoFromEmail:   env.BREVO_FROM_EMAIL   || 'noreply@nfz33.com',
+    // 後方互換（email.jsが参照するため残す）
+    resendFromEmail:  env.BREVO_FROM_EMAIL   || 'noreply@nfz33.com',
   };
 }
 

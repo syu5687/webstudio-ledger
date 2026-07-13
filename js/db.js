@@ -81,14 +81,26 @@ async function dbFetchProjects() {
 
 async function dbSaveProject(projectData) {
   if (!isDbReady()) {
+    const now = new Date().toISOString();
     if (projectData.id && !String(projectData.id).startsWith('local-')) {
+      // 既存案件の更新：キャッシュをマージして完全なオブジェクトを返す
       const idx = _cache.projects.findIndex(p => p.id === projectData.id);
-      if (idx >= 0) _cache.projects[idx] = { ..._cache.projects[idx], ...projectData };
+      const merged = normalizeProject({
+        ...( idx >= 0 ? _cache.projects[idx] : {} ),
+        ...projectData,
+        updatedAt: now,
+      });
+      if (idx >= 0) _cache.projects[idx] = merged;
+      toast('⚠️ オフラインモード：DBに保存されていません', '⚠️');
+      return merged;
     } else {
-      _cache.projects.unshift({ ...projectData, id: 'local-' + Date.now() });
+      // 新規案件：local-IDを付与して完全なオブジェクトを返す
+      const newId = 'local-' + Date.now();
+      const merged = normalizeProject({ ...projectData, id: newId, createdAt: now, updatedAt: now });
+      _cache.projects.unshift(merged);
+      toast('⚠️ オフラインモード：DBに保存されていません', '⚠️');
+      return merged;
     }
-    toast('⚠️ オフラインモード：DBに保存されていません', '⚠️');
-    return { id: projectData.id };
   }
   try {
     const payload = denormalizeProject(projectData);

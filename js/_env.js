@@ -1,7 +1,9 @@
 /* Auto-generated — Web制作 案件台帳 */
+/* @version v20260309-0189-firebase | 2026-03-09 | webstudio-ledger */
 window.ENV = {
-  SUPABASE_URL:      'https://ehovgxyqlongollwyrml.supabase.co',
-  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVob3ZneHlxbG9uZ29sbHd5cm1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NzcyMDgsImV4cCI6MjA4ODI1MzIwOH0.rdkzvNrsO8PkKDuMJNZwqY0pQDnabfVcmJnDhiv1wfc',
-  RESEND_API_KEY:    're_2uUwkqYF_QELAZsUopJCY2KC3h2Ngw75J',
-  RESEND_FROM_EMAIL: 'estimate@nfz33.com',
+  FIREBASE_API_KEY:    'AIzaSyDi_QoyDtOSHkw0-ijnELdmbYX1DOHbSHQ',
+  FIREBASE_PROJECT_ID: 'webstudio-ledger',
+  FIREBASE_APP_ID:     '1:393169789993:web:bf169fee56066ba1d82838',
+  BREVO_API_KEY:       '',
+  BREVO_FROM_EMAIL:    'noreply@nfz33.com',
 };

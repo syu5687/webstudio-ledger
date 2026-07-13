@@ -1443,7 +1443,7 @@ function _openBillingEmailModal(proj, client, contacts) {
 
   // Resend未設定警告
   const warn = document.getElementById('emailConfigWarning');
-  if (warn) warn.style.display = window.CFG?.resendApiKey ? 'none' : 'block';
+  if (warn) warn.style.display = window.CFG?.brevoApiKey ? 'none' : 'block';
 
   document.getElementById('mail-to').value      = toEmail;
   document.getElementById('mail-cc').value      = co.email || '';
@@ -2684,7 +2684,12 @@ async function issueInvoicesFromDelivered() {
       for (const p of projects) {
         const updated = await dbSaveProject({ ...p, status: 'invoiced', invNo, invDate });
         const idx = (_cache.projects||[]).findIndex(x => x.id === p.id);
-        if (idx >= 0) _cache.projects[idx] = updated || { ..._cache.projects[idx], status: 'invoiced', invNo, invDate };
+        if (idx >= 0) {
+          // updatedが完全なオブジェクトなら使用、そうでなければキャッシュをマージ
+          _cache.projects[idx] = (updated && updated.name)
+            ? updated
+            : { ..._cache.projects[idx], status: 'invoiced', invNo, invDate };
+        }
       }
 
       toast(`✅ ${client.name || '取引先'} の請求書 ${invNo} を発行しました`, '🧾', 'success');
