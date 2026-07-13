@@ -41,6 +41,13 @@ async function init() {
   applyConfigToForm();
 
   const { firebaseApiKey, firebaseProjectId } = window.CFG || {};
+
+  // デバッグログ
+  console.log('[INIT] CFG:', JSON.stringify({ firebaseApiKey: firebaseApiKey?.slice(0,10)+'...', firebaseProjectId }));
+  console.log('[INIT] window.firebaseApp:', typeof window.firebaseApp);
+  console.log('[INIT] window.firebaseFirestore:', typeof window.firebaseFirestore);
+  console.log('[INIT] window.ENV:', JSON.stringify(window.ENV));
+
   const hasSupabase = firebaseApiKey && firebaseProjectId && window.firebaseApp && window.firebaseFirestore;
 
   if (!hasSupabase) {
