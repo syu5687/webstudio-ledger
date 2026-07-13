@@ -39,17 +39,21 @@
         <span class="nav-icon">📋</span> 案件台帳
       </div>
       <div class="nav-item" data-view="orders" onclick="showView('orders')">
-        <span class="nav-icon">✅</span> 受注管理
+        <span class="nav-icon">✅</span> 受注一覧
         <span class="nav-badge" id="orderBadge" style="display:none"></span>
+      </div>
+      <div class="nav-item" data-view="delivered" onclick="showView('delivered')">
+        <span class="nav-icon">📦</span> 納品済一覧
+        <span class="nav-badge" id="deliveredBadge" style="display:none;background:#4527a0"></span>
+      </div>
+      <div class="nav-item" data-view="invoices" onclick="showView('invoices')">
+        <span class="nav-icon">🧾</span> 請求書一覧
       </div>
       <div class="nav-item" data-view="board" onclick="showView('board')">
         <span class="nav-icon">🗂️</span> カンバンボード
       </div>
-      <div class="nav-item" data-view="billing" onclick="showView('billing')">
-        <span class="nav-icon">📄</span> 請求書作成
-      </div>
       <div class="nav-item" data-view="invoice" onclick="showView('invoice')">
-        <span class="nav-icon">🧾</span> 見積・請求書
+        <span class="nav-icon">📄</span> 見積・請求書
       </div>
       <div class="nav-section">マスター</div>
       <div class="nav-item" data-view="clients" onclick="showView('clients')">
@@ -98,7 +102,7 @@
       </button>
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260309-0184</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260309-0186-firebase</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -215,6 +219,53 @@
               </tr>
             </thead>
             <tbody id="ordersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DELIVERED VIEW -->
+      <div id="view-delivered" style="display:none">
+        <div class="toolbar" style="margin-bottom:16px">
+          <div class="search-box">
+            <span>🔍</span>
+            <input type="text" id="deliveredSearch" placeholder="案件名・取引先で検索..." oninput="renderDeliveredView()">
+          </div>
+          <button class="btn btn-primary" id="issueInvoiceBtn" onclick="issueInvoicesFromDelivered()" style="display:none">
+            🧾 選択案件の請求書を発行
+          </button>
+        </div>
+        <!-- クライアント別グルーピング -->
+        <div id="deliveredClientGroups"></div>
+      </div>
+
+      <!-- INVOICES VIEW（請求書一覧） -->
+      <div id="view-invoices" style="display:none">
+        <div class="toolbar" style="margin-bottom:16px">
+          <div class="search-box">
+            <span>🔍</span>
+            <input type="text" id="invoicesSearch" placeholder="請求書No・取引先で検索..." oninput="renderInvoicesView()">
+          </div>
+          <select class="filter-select" id="invoicesStatusFilter" onchange="renderInvoicesView()">
+            <option value="">全ステータス</option>
+            <option value="issued">発行済</option>
+            <option value="sent">送付済</option>
+            <option value="paid">入金済</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>請求書No</th>
+                <th>取引先</th>
+                <th>案件</th>
+                <th>発行日</th>
+                <th style="text-align:right">金額（税込）</th>
+                <th>ステータス</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="invoicesTableBody"></tbody>
           </table>
         </div>
       </div>
@@ -1170,7 +1221,41 @@
 <!-- Supabase CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <script src="js/_env.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <!-- Firebase SDK (UMD版) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script>
+    // Firebase SDK を db.js が使いやすい形に整理
+    window.firebaseApp = {
+      initializeApp: firebase.initializeApp.bind(firebase),
+      getApps: () => firebase.apps,
+    };
+    window.firebaseFirestore = {
+      getFirestore: (app) => app.firestore(),
+      collection: (db, path) => db.collection(path),
+      doc: (db, path, id) => db.collection(path).doc(id),
+      getDocs: (q) => q.get(),
+      getDoc: (ref) => ref.get(),
+      addDoc: (colRef, data) => colRef.add(data),
+      setDoc: (ref, data) => ref.set(data),
+      updateDoc: (ref, data) => ref.update(data),
+      deleteDoc: (ref) => ref.delete(),
+      query: (colRef, ...constraints) => {
+        let q = colRef;
+        constraints.forEach(c => { if (c) q = c(q); });
+        return q;
+      },
+      where: (field, op, val) => (q) => q.where(field, op, val),
+      orderBy: (field, dir) => (q) => q.orderBy(field, dir || 'asc'),
+      limit: (n) => (q) => q.limit(n),
+      onSnapshot: (q, cb) => q.onSnapshot(snapshot => {
+        const docChanges = snapshot.docChanges().map(c => ({
+          type: c.type, doc: { id: c.doc.id, data: () => c.doc.data() }
+        }));
+        cb({ docChanges: () => docChanges });
+      }),
+    };
+  </script>
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
 <script src="js/invoice.js"></script>

@@ -1,20 +1,21 @@
 /* ============================================================
    config.js — 設定管理
-   自社情報はSupabaseのcompany_settingsテーブルで管理
+   自社情報はFirestoreのcompany_settingsコレクションで管理
    ============================================================ */
 
 const DEFAULT_COMPANY = {
   name: '', zip: '', addr: '', tel: '', fax: '', email: '', regNo: '',
   bank: '', account: '', holder: '',
   taxRate: 10, dueDays: 30,
-  stampDataUrl: '',  // base64 data URL
+  stampDataUrl: '',
 };
 
 function getEnv() {
   const env = window.ENV || {};
   return {
-    supabaseUrl:     env.SUPABASE_URL      || 'https://ehovgxyqlongollwyrml.supabase.co',
-    supabaseAnonKey: env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVob3ZneHlxbG9uZ29sbHd5cm1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NzcyMDgsImV4cCI6MjA4ODI1MzIwOH0.rdkzvNrsO8PkKDuMJNZwqY0pQDnabfVcmJnDhiv1wfc',
+    firebaseApiKey:    env.FIREBASE_API_KEY    || '',
+    firebaseProjectId: env.FIREBASE_PROJECT_ID || '',
+    firebaseAppId:     env.FIREBASE_APP_ID     || '',
     resendApiKey:    env.RESEND_API_KEY    || 're_2uUwkqYF_QELAZsUopJCY2KC3h2Ngw75J',
     resendFromEmail: env.RESEND_FROM_EMAIL || 'estimate@nfz33.com',
   };
@@ -22,42 +23,36 @@ function getEnv() {
 
 window.CFG = { company: { ...DEFAULT_COMPANY }, ...getEnv() };
 
-// ── Supabaseからcompany_settings読み込み ──
+// ── FirestoreからcompanySettings読み込み ──
 async function loadCompanyFromDB() {
   if (!isDbReady()) return;
   try {
-    const client = _supabase;
-    const { data, error } = await client
-      .from('company_settings')
-      .select('*')
-      .eq('id', 1)
-      .maybeSingle();
-    if (error) { console.warn('company_settings読み込みエラー:', error.message); return; }
-    if (data) {
-      window.CFG.company = {
-        name:         data.name         || '',
-        zip:          data.zip          || '',
-        addr:         data.addr         || '',
-        tel:          data.tel          || '',
-        fax:          data.fax          || '',
-        email:        data.email        || '',
-        regNo:        data.reg_no       || '',
-        bank:         data.bank         || '',
-        account:      data.account      || '',
-        holder:       data.holder       || '',
-        taxRate:      data.tax_rate     ?? 10,
-        dueDays:      data.due_days     ?? 30,
-        stampDataUrl: data.stamp_data_url || '',
-      };
-      applyConfigToForm();
-      console.log('✅ 自社情報をSupabaseから読み込みました');
-    }
+    const snap = await _getDoc(_doc(_db, 'company_settings', 'main'));
+    if (!snap.exists()) return;
+    const data = snap.data();
+    window.CFG.company = {
+      name:         data.name         || '',
+      zip:          data.zip          || '',
+      addr:         data.addr         || '',
+      tel:          data.tel          || '',
+      fax:          data.fax          || '',
+      email:        data.email        || '',
+      regNo:        data.regNo        || data.reg_no || '',
+      bank:         data.bank         || '',
+      account:      data.account      || '',
+      holder:       data.holder       || '',
+      taxRate:      data.taxRate      ?? data.tax_rate ?? 10,
+      dueDays:      data.dueDays      ?? data.due_days ?? 30,
+      stampDataUrl: data.stampDataUrl || data.stamp_data_url || '',
+    };
+    applyConfigToForm();
+    console.log('✅ 自社情報をFirestoreから読み込みました');
   } catch(e) {
     console.warn('company_settings取得失敗:', e);
   }
 }
 
-// ── Supabaseへcompany_settings保存 ──
+// ── Firestoreへcompany_settings保存 ──
 async function saveCompany() {
   const get = (id) => document.getElementById(id)?.value?.trim() || '';
   const company = {
@@ -70,7 +65,6 @@ async function saveCompany() {
     stampDataUrl: window.CFG.company.stampDataUrl || '',
   };
 
-  // 印鑑プレビューから最新のdataURLを取得
   const previewImg = document.getElementById('co-stamp-preview');
   if (previewImg && previewImg.src && previewImg.src.startsWith('data:')) {
     company.stampDataUrl = previewImg.src;
@@ -79,37 +73,21 @@ async function saveCompany() {
   window.CFG.company = company;
 
   if (!isDbReady()) {
-    toast('Supabase未接続のため保存できません', '⚠️', 'error');
+    toast('Firebase未接続のため保存できません', '⚠️', 'error');
     return;
   }
 
   try {
-    const payload = {
-      id:             1,
-      name:           company.name,
-      zip:            company.zip,
-      addr:           company.addr,
-      tel:            company.tel,
-      fax:            company.fax,
-      email:          company.email,
-      reg_no:         company.regNo,
-      bank:           company.bank,
-      account:        company.account,
-      holder:         company.holder,
-      tax_rate:       company.taxRate,
-      due_days:       company.dueDays,
-      stamp_data_url: company.stampDataUrl,
-      updated_at:     new Date().toISOString(),
-    };
-    const { error } = await _supabase
-      .from('company_settings')
-      .upsert(payload, { onConflict: 'id' });
-    if (error) throw error;
+    await _setDoc(_doc(_db, 'company_settings', 'main'), {
+      ...company,
+      updatedAt: new Date().toISOString(),
+    });
     toast('自社情報を保存しました', '✅', 'success');
   } catch(e) {
     toast('保存失敗: ' + (e.message || e), '❌', 'error');
   }
 }
+
 
 function applyConfigToForm() {
   const c = window.CFG.company;
@@ -158,17 +136,15 @@ function onStampFileChange(input) {
   reader.readAsDataURL(file);
 }
 
-async function testSupabaseConnection() {
-  const { supabaseUrl, supabaseAnonKey } = window.CFG;
-  if (!supabaseUrl || !supabaseAnonKey) {
-    toast('Supabase環境変数が未設定です', '⚠️');
+async function testFirebaseConnection() {
+  const { firebaseApiKey, firebaseProjectId } = window.CFG;
+  if (!firebaseApiKey || !firebaseProjectId) {
+    toast('Firebase環境変数が未設定です', '⚠️');
     return;
   }
   try {
-    const client = supabase.createClient(supabaseUrl, supabaseAnonKey);
-    const { error } = await client.from('projects').select('id').limit(1);
-    if (error && error.code !== 'PGRST116') throw error;
-    toast('Supabase接続OK ✅', '✅', 'success');
+    await _getDocs(_query(_collection(_db, 'projects'), _limit(1)));
+    toast('Firebase接続OK ✅', '✅', 'success');
     updateDbStatus(true);
   } catch (e) {
     toast('接続失敗: ' + (e.message || e), '❌', 'error');

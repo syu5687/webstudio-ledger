@@ -40,8 +40,8 @@ let _statusFilter = 'all';
 async function init() {
   applyConfigToForm();
 
-  const { supabaseUrl, supabaseAnonKey } = window.CFG || {};
-  const hasSupabase = supabaseUrl && supabaseAnonKey && typeof supabase !== 'undefined';
+  const { firebaseApiKey, firebaseProjectId } = window.CFG || {};
+  const hasSupabase = firebaseApiKey && firebaseProjectId && window.firebaseApp && window.firebaseFirestore;
 
   if (!hasSupabase) {
     // Supabase未設定時はデモデータで即表示
@@ -51,7 +51,7 @@ async function init() {
   } else {
     // Supabase設定済み：DB取得後に表示（デモデータは一切表示しない）
     try {
-      const connected = initSupabase();
+      const connected = initFirebase();
       if (connected) {
         await Promise.race([
           Promise.all([dbFetchProjects(), dbFetchClients(), dbFetchDomains()]),
@@ -115,31 +115,38 @@ function closeSidebar() {
 }
 
 function showView(view) {
-  closeSidebar(); // SP でメニュー選択後に自動的に閉じる
-  ['ledger','orders','billing','invoice','clients','domains','hostings','monthly','expenses','dashboard','board','own-servers','own-subscriptions','company','drive'].forEach(v => {
+  closeSidebar();
+  ['ledger','orders','delivered','invoices','billing','invoice','clients','domains','hostings','monthly','expenses','dashboard','board','own-servers','own-subscriptions','company','drive'].forEach(v => {
     const el = document.getElementById('view-'+v);
     if (!el) return;
     if (v !== view) { el.style.display = 'none'; return; }
-    // driveはflexレイアウトで表示
     el.style.display = v === 'drive' ? 'flex' : '';
   });
   document.querySelectorAll('.nav-item[data-view]').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
   });
-  const titles = { ledger:'案件台帳', orders:'受注管理', billing:'請求書作成', invoice:'見積・請求書', clients:'取引先', domains:'ドメイン管理', hostings:'ホスティング管理', monthly:'月次請求リスト', expenses:'経費管理', dashboard:'売上ダッシュボード', board:'カンバンボード', 'own-servers':'サーバー管理', 'own-subscriptions':'サブスク管理', company:'自社情報設定', drive:'仕入・経費書類' };
+  const titles = {
+    ledger:'案件台帳', orders:'受注一覧', delivered:'納品済一覧', invoices:'請求書一覧',
+    billing:'請求書作成（旧）', invoice:'見積・請求書', clients:'取引先',
+    domains:'ドメイン管理', hostings:'ホスティング管理', monthly:'月次請求リスト',
+    expenses:'経費管理', dashboard:'売上ダッシュボード', board:'カンバンボード',
+    'own-servers':'サーバー管理', 'own-subscriptions':'サブスク管理',
+    company:'自社情報設定', drive:'仕入・経費書類'
+  };
   document.getElementById('pageTitle').textContent = titles[view] || '';
   document.getElementById('newProjectBtn').style.display = view === 'ledger' ? '' : 'none';
-  if (view === 'orders') renderOrdersTable();
-  if (view === 'company') applyConfigToForm();
-  if (view === 'domains') renderDomains();
-  if (view === 'hostings') renderHostings();
-  if (view === 'monthly') renderMonthly();
+  if (view === 'orders')    renderOrdersTable();
+  if (view === 'delivered') renderDeliveredView();
+  if (view === 'invoices')  renderInvoicesView();
+  if (view === 'company')   applyConfigToForm();
+  if (view === 'domains')   renderDomains();
+  if (view === 'hostings')  renderHostings();
+  if (view === 'monthly')   renderMonthly();
   if (view === 'dashboard') renderDashboard();
-  if (view === 'expenses') renderExpenses();
+  if (view === 'expenses')  renderExpenses();
   if (view === 'drive') {
     const driveEl = document.getElementById('view-drive');
     if (driveEl) driveEl.style.display = 'flex';
-    // iframeロード失敗時のフォールバック
     const frame = document.getElementById('driveFrame');
     const blocked = document.getElementById('driveBlockedMsg');
     if (frame && blocked) {
@@ -150,7 +157,7 @@ function showView(view) {
               frame.contentDocument.body.innerHTML === '') {
             frame.style.display='none'; blocked.style.display='flex';
           }
-        } catch(e) { /* cross-origin は正常 */ }
+        } catch(e) {}
       }, 3000);
     }
   }
@@ -163,7 +170,7 @@ function showView(view) {
 /* ── KPI ── */
 function updateKPI() {
   const projects = _cache.projects;
-  const statuses = ['all','preparation','estimate_request','estimating','ordered','wip','delivered','invoiced','paid','unpaid','lost','no_change','lease','lease_delivered','lease_contracted','lease_invoiced','domain_renewal'];
+  const statuses = ['all','preparation','estimate_request','estimating','ordered','wip','delivered','invoiced','sent','paid','unpaid','lost','no_change','lease','lease_delivered','lease_contracted','lease_invoiced','domain_renewal'];
   statuses.forEach(s => {
     const list = s === 'all' ? projects : projects.filter(p => p.status === s);
     const total = list.reduce((sum, p) => sum + calcSubtotal(p.lines), 0);
@@ -364,6 +371,7 @@ function updateOrderBadge() {
   if (!badge) return;
   badge.style.display = count > 0 ? 'inline-block' : 'none';
   badge.textContent = count;
+  updateDeliveredBadge();
 }
 
 /* ── INVOICE LIST ── */
@@ -2516,5 +2524,322 @@ async function deleteExpense() {
     toast('削除しました', '✅', 'success');
   } catch(e) {
     toast('削除エラー: ' + (e.message || e), '❌', 'error');
+  }
+}
+
+/* ============================================================
+   納品済一覧 ビュー
+   ============================================================ */
+
+// 納品済バッジ更新
+function updateDeliveredBadge() {
+  const count = (_cache.projects||[]).filter(p => p.status === 'delivered').length;
+  const badge = document.getElementById('deliveredBadge');
+  if (!badge) return;
+  if (count > 0) { badge.textContent = count; badge.style.display = 'inline-flex'; }
+  else badge.style.display = 'none';
+}
+
+// 納品済一覧レンダリング（クライアント別グルーピング）
+function renderDeliveredView() {
+  updateDeliveredBadge();
+  const keyword = (document.getElementById('deliveredSearch')?.value || '').toLowerCase();
+  const container = document.getElementById('deliveredClientGroups');
+  if (!container) return;
+
+  const projects = (_cache.projects||[]).filter(p => {
+    if (p.status !== 'delivered') return false;
+    if (!keyword) return true;
+    const client = getClientById(p.clientId);
+    return (p.name||'').toLowerCase().includes(keyword) ||
+           (client?.name||'').toLowerCase().includes(keyword);
+  });
+
+  // クライアント別にグルーピング
+  const groups = {};
+  projects.forEach(p => {
+    const cid = p.clientId || '__none__';
+    if (!groups[cid]) groups[cid] = { client: getClientById(p.clientId), projects: [] };
+    groups[cid].projects.push(p);
+  });
+
+  if (Object.keys(groups).length === 0) {
+    container.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--muted)">
+      <div style="font-size:40px;margin-bottom:12px">📦</div>
+      <div style="font-weight:600">納品済案件はありません</div>
+      <div style="font-size:12px;margin-top:6px">案件ステータスを「納品済」にすると表示されます</div>
+    </div>`;
+    document.getElementById('issueInvoiceBtn').style.display = 'none';
+    return;
+  }
+
+  const fmt = n => '¥' + Number(n||0).toLocaleString();
+  const calcTotal = (lines) => (lines||[]).reduce((s,l) => s + (l.qty||1)*(l.price||0), 0);
+
+  container.innerHTML = Object.entries(groups).map(([cid, g]) => {
+    const clientName = g.client?.name || '（取引先未設定）';
+    const groupTotal = g.projects.reduce((s, p) => s + calcTotal(p.lines), 0);
+    const tax = Math.floor(groupTotal * 0.1);
+    const rows = g.projects.map(p => {
+      const subtotal = calcTotal(p.lines);
+      const lineNames = (p.lines||[]).map(l=>l.name).filter(Boolean).join('、') || '—';
+      return `<tr>
+        <td style="width:36px;text-align:center">
+          <input type="checkbox" class="delivered-check" data-id="${p.id}" data-client="${cid}"
+            onchange="onDeliveredCheck()" style="width:16px;height:16px;cursor:pointer">
+        </td>
+        <td style="font-size:11px;color:var(--muted)">${p.code||'—'}</td>
+        <td>
+          <div style="font-weight:600;font-size:13px">${p.name}</div>
+          <div style="font-size:11px;color:var(--muted)">${lineNames}</div>
+        </td>
+        <td style="font-size:12px;color:var(--muted)">${p.orderDate||'—'}</td>
+        <td style="text-align:right;font-family:'Space Mono',monospace;font-weight:700">${fmt(subtotal)}</td>
+        <td style="text-align:center">
+          <button class="btn btn-ghost btn-sm" onclick="openEditProject('${p.id}')">編集</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:20px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:rgba(0,0,0,0.04);border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="checkbox" class="group-check" data-client="${cid}"
+            onchange="onGroupCheck(this)" style="width:16px;height:16px;cursor:pointer">
+          <span style="font-weight:700;font-size:15px">🏢 ${clientName}</span>
+          <span style="background:#4527a0;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px">${g.projects.length}件</span>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--muted)">合計（税込）</div>
+          <div style="font-family:'Space Mono',monospace;font-weight:700;font-size:16px">${fmt(groupTotal + tax)}</div>
+        </div>
+      </div>
+      <table style="width:100%">
+        <thead><tr style="background:var(--ink);color:#fff;font-size:11px">
+          <th style="width:36px"></th>
+          <th style="padding:8px 12px">案件コード</th>
+          <th style="padding:8px 12px">案件名 / 明細</th>
+          <th style="padding:8px 12px">受注日</th>
+          <th style="padding:8px 12px;text-align:right">金額（税抜）</th>
+          <th style="padding:8px 12px"></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  document.getElementById('issueInvoiceBtn').style.display = 'none';
+}
+
+// グループ全選択チェックボックス
+function onGroupCheck(el) {
+  const cid = el.dataset.client;
+  document.querySelectorAll(`.delivered-check[data-client="${cid}"]`)
+    .forEach(c => { c.checked = el.checked; });
+  onDeliveredCheck();
+}
+
+// チェック変更時：ボタン表示更新
+function onDeliveredCheck() {
+  const checked = document.querySelectorAll('.delivered-check:checked');
+  const btn = document.getElementById('issueInvoiceBtn');
+  if (btn) {
+    btn.style.display = checked.length > 0 ? '' : 'none';
+    btn.textContent = `🧾 選択した${checked.length}件の請求書を発行`;
+  }
+}
+
+// 請求書発行処理
+async function issueInvoicesFromDelivered() {
+  const checked = [...document.querySelectorAll('.delivered-check:checked')];
+  if (checked.length === 0) return;
+
+  // クライアント別にグルーピング
+  const groups = {};
+  checked.forEach(el => {
+    const cid = el.dataset.client;
+    const pid = el.dataset.id;
+    if (!groups[cid]) groups[cid] = [];
+    groups[cid].push(pid);
+  });
+
+  const btn = document.getElementById('issueInvoiceBtn');
+  btn.disabled = true;
+  btn.textContent = '発行中...';
+
+  try {
+    for (const [cid, pids] of Object.entries(groups)) {
+      const client = getClientById(cid) || {};
+      const projects = pids.map(id => (_cache.projects||[]).find(p => p.id === id)).filter(Boolean);
+
+      // 請求書番号を採番
+      const invNo = await dbNextDocNo('invoice');
+      const invDate = new Date().toISOString().slice(0, 10);
+
+      // 全案件の明細をマージ
+      const mergedLines = [];
+      projects.forEach(p => (p.lines||[]).forEach(l => mergedLines.push({...l})));
+
+      // 各案件を「請求済」に更新し invNo をセット
+      for (const p of projects) {
+        const updated = await dbSaveProject({ ...p, status: 'invoiced', invNo, invDate });
+        const idx = (_cache.projects||[]).findIndex(x => x.id === p.id);
+        if (idx >= 0) _cache.projects[idx] = updated || { ..._cache.projects[idx], status: 'invoiced', invNo, invDate };
+      }
+
+      toast(`✅ ${client.name || '取引先'} の請求書 ${invNo} を発行しました`, '🧾', 'success');
+    }
+
+    // ビュー更新
+    renderDeliveredView();
+    renderInvoicesView();
+    updateDeliveredBadge();
+    renderTable();
+    updateKPI();
+
+    // 請求書一覧へ移動
+    setTimeout(() => showView('invoices'), 800);
+
+  } catch(e) {
+    toast('発行エラー: ' + e.message, '❌', 'error');
+  } finally {
+    btn.disabled = false;
+    onDeliveredCheck();
+  }
+}
+
+/* ============================================================
+   請求書一覧 ビュー
+   ============================================================ */
+
+function renderInvoicesView() {
+  const tbody = document.getElementById('invoicesTableBody');
+  if (!tbody) return;
+
+  const keyword = (document.getElementById('invoicesSearch')?.value || '').toLowerCase();
+  const statusF  = document.getElementById('invoicesStatusFilter')?.value || '';
+
+  // invNoがある案件 = 請求書発行済
+  let list = (_cache.projects||[]).filter(p => p.invNo);
+  if (keyword) {
+    list = list.filter(p => {
+      const c = getClientById(p.clientId);
+      return (p.invNo||'').toLowerCase().includes(keyword) ||
+             (p.name||'').toLowerCase().includes(keyword) ||
+             (c?.name||'').toLowerCase().includes(keyword);
+    });
+  }
+  if (statusF) {
+    const statusMap = { issued: 'invoiced', sent: 'sent', paid: 'paid' };
+    list = list.filter(p => p.status === (statusMap[statusF] || statusF));
+  }
+
+  // invNoでグルーピング（同一請求書番号の案件をまとめる）
+  const invoiceMap = {};
+  list.forEach(p => {
+    const key = p.invNo;
+    if (!invoiceMap[key]) {
+      invoiceMap[key] = { invNo: p.invNo, invDate: p.invDate, clientId: p.clientId, projects: [], status: p.status };
+    }
+    invoiceMap[key].projects.push(p);
+  });
+
+  const invoices = Object.values(invoiceMap).sort((a,b) => (b.invDate||'').localeCompare(a.invDate||''));
+
+  if (invoices.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">請求書がありません</td></tr>`;
+    return;
+  }
+
+  const fmt = n => '¥' + Number(n||0).toLocaleString();
+  const calcTotal = (lines) => (lines||[]).reduce((s,l) => s + (l.qty||1)*(l.price||0), 0);
+
+  const statusLabel = { invoiced: { label: '発行済', color: '#e65100' }, sent: { label: '送付済', color: '#1565c0' }, paid: { label: '入金済', color: '#2e7d32' } };
+
+  tbody.innerHTML = invoices.map(inv => {
+    const client = getClientById(inv.clientId);
+    const subtotal = inv.projects.reduce((s,p) => s + calcTotal(p.lines), 0);
+    const tax = Math.floor(subtotal * 0.1);
+    const total = subtotal + tax;
+    const names = inv.projects.map(p=>p.name).join('、');
+    const sl = statusLabel[inv.status] || { label: inv.status, color: '#888' };
+    const firstProjId = inv.projects[0]?.id;
+
+    return `<tr>
+      <td style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700">${inv.invNo}</td>
+      <td style="font-weight:600">${client?.name || '—'}</td>
+      <td style="font-size:12px;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${names}</td>
+      <td style="font-size:12px">${inv.invDate||'—'}</td>
+      <td style="text-align:right;font-family:'Space Mono',monospace;font-weight:700">${fmt(total)}</td>
+      <td style="text-align:center">
+        <span style="background:${sl.color}22;color:${sl.color};font-size:11px;padding:2px 10px;border-radius:10px;font-weight:600">${sl.label}</span>
+      </td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="previewInvoice('${firstProjId}','${inv.invNo}')">👁 確認</button>
+        <button class="btn btn-ghost btn-sm" onclick="sendInvoiceEmail('${inv.invNo}')" style="color:#1565c0">📧 送付</button>
+        ${inv.status === 'sent' ? `<button class="btn btn-ghost btn-sm" onclick="markInvoicePaid('${inv.invNo}')" style="color:#2e7d32">✅ 入金</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// 請求書プレビュー
+function previewInvoice(projId, invNo) {
+  if (projId) openEditProject(projId);
+}
+
+// 請求書メール送付
+async function sendInvoiceEmail(invNo) {
+  const projects = (_cache.projects||[]).filter(p => p.invNo === invNo);
+  if (!projects.length) return;
+
+  const client = getClientById(projects[0].clientId);
+  if (!client) { toast('取引先情報がありません', '❌', 'error'); return; }
+
+  // 明細マージ
+  const mergedLines = [];
+  projects.forEach(p => (p.lines||[]).forEach(l => mergedLines.push({...l})));
+
+  // 代表案件（先頭）にマージ情報をセット
+  const firstProj = projects[0];
+  const merged = {
+    ...firstProj,
+    name: projects.length > 1 ? projects.map(p=>p.name).join('・') : firstProj.name,
+    lines: mergedLines,
+    invNo,
+    recipientEmail: firstProj.recipientEmail || client.email || '',
+    recipientName:  firstProj.recipientName  || client.contact || '',
+  };
+
+  // 送付後にステータス→sentに更新するフラグをセット
+  window._sendingInvNo = invNo;
+
+  // 既存のメールモーダルを流用（billingMode ではなく通常送信として開く）
+  const contacts = client.contacts || [];
+  _openBillingEmailModal(merged, client, contacts);
+
+  // 送信ボタンラベルを「請求書を送付」に変更
+  const sendBtn = document.getElementById('sendEmailBtn');
+  if (sendBtn) {
+    sendBtn.textContent = '📧 請求書を送付する';
+    sendBtn.dataset.invoiceSendMode = '1';
+    delete sendBtn.dataset.billingMode;
+  }
+}
+
+// 入金済マーク
+async function markInvoicePaid(invNo) {
+  if (!confirm(`${invNo} を入金済にしますか？`)) return;
+  const projects = (_cache.projects||[]).filter(p => p.invNo === invNo);
+  try {
+    for (const p of projects) {
+      await dbUpdateProjectStatus(p.id, 'paid');
+    }
+    toast('入金済に更新しました', '✅', 'success');
+    renderInvoicesView();
+    renderTable();
+    updateKPI();
+  } catch(e) {
+    toast('更新エラー: ' + e.message, '❌', 'error');
   }
 }

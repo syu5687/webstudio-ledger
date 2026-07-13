@@ -334,11 +334,25 @@ async function executeSendEmail() {
     closeModal('emailModal');
     // 請求書作成モードの場合は確定処理を実行
     const isBillingMode = document.getElementById('sendEmailBtn')?.dataset?.billingMode === '1';
+    const isInvoiceSendMode = document.getElementById('sendEmailBtn')?.dataset?.invoiceSendMode === '1';
     if (isBillingMode && typeof executeBillingFinalize === 'function') {
       // sendEmailBtnを元に戻す
       const sendBtn = document.getElementById('sendEmailBtn');
       if (sendBtn) { sendBtn.textContent = '📧 送信する'; delete sendBtn.dataset.billingMode; }
       await executeBillingFinalize(null);
+    } else if (isInvoiceSendMode && window._sendingInvNo) {
+      // 請求書送付モード：送付済ステータスに更新
+      const sendBtn = document.getElementById('sendEmailBtn');
+      if (sendBtn) { sendBtn.textContent = '📧 送信する'; delete sendBtn.dataset.invoiceSendMode; }
+      const invNo = window._sendingInvNo;
+      window._sendingInvNo = null;
+      const targets = (_cache.projects||[]).filter(p => p.invNo === invNo);
+      for (const p of targets) {
+        await dbUpdateProjectStatus(p.id, 'sent');
+      }
+      toast(`請求書 ${invNo} を送付しました`, '📧', 'success');
+      if (typeof renderInvoicesView === 'function') renderInvoicesView();
+      if (typeof renderTable === 'function') renderTable();
     } else {
       toast(`メールを送信しました（${to}）`, '📧', 'success');
       if (isEstimate && orderUrl) {
