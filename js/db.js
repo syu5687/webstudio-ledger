@@ -116,7 +116,7 @@ async function dbSaveProject(projectData) {
       payload.createdAt = now; payload.updatedAt = now;
       delete payload.id;
       const ref = await _addDoc(_collection(_db, 'projects'), payload);
-      const snap = await _getDoc(ref);
+      const snap = await _getDoc(_doc(_db, 'projects', ref.id));
       return normalizeProject({ id: snap.id, ...snap.data() });
     }
   } catch (e) {
@@ -178,7 +178,7 @@ async function dbSaveClient(clientData) {
     } else {
       const { id, ...ins } = clientData; ins.createdAt = now;
       const ref = await _addDoc(_collection(_db,'clients'), ins);
-      const snap = await _getDoc(ref);
+      const snap = await _getDoc(_doc(_db, 'clients', ref.id));
       return { id: snap.id, ...snap.data() };
     }
   } catch (e) { console.error('取引先保存エラー:', e); toast('保存エラー: ' + e.message, '❌', 'error'); throw e; }
@@ -350,7 +350,7 @@ async function dbSaveDomain(domainData) {
     } else {
       const { id, ...ins } = domainData; ins.created_at = now;
       const ref = await _addDoc(_collection(_db,'domains'), ins);
-      const snap = await _getDoc(ref);
+      const snap = await _getDoc(_doc(_db, 'domains', ref.id));
       return { id: snap.id, ...snap.data() };
     }
   } catch (e) { console.error('ドメイン保存エラー:', e); toast('保存エラー: '+e.message,'❌','error'); throw e; }
@@ -395,7 +395,7 @@ async function dbSaveHosting(data) {
     } else {
       const { id, ...ins } = data; ins.created_at = now;
       const ref = await _addDoc(_collection(_db,'hostings'), ins);
-      const snap = await _getDoc(ref);
+      const snap = await _getDoc(_doc(_db, 'hostings', ref.id));
       return { id: snap.id, ...snap.data() };
     }
   } catch (e) { console.error('ホスティング保存エラー:', e); throw e; }
@@ -440,7 +440,7 @@ async function dbSaveExpense(data) {
     } else {
       const { id, ...ins } = data; ins.created_at = now;
       const ref = await _addDoc(_collection(_db,'expenses'), ins);
-      const snap = await _getDoc(ref);
+      const snap = await _getDoc(_doc(_db, 'expenses', ref.id));
       return { id: snap.id, ...snap.data() };
     }
   } catch (e) { console.error('経費保存エラー:', e); throw e; }

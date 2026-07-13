@@ -102,7 +102,7 @@
       </button>
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260309-0189-firebase</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260309-0190-firebase</span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
@@ -1225,34 +1225,55 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script>
-    // Firebase SDK を db.js が使いやすい形に整理
+    // Firebase compat SDK → db.js インターフェース変換
     window.firebaseApp = {
-      initializeApp: firebase.initializeApp.bind(firebase),
+      initializeApp: (cfg) => firebase.initializeApp(cfg),
       getApps: () => firebase.apps,
     };
     window.firebaseFirestore = {
+      // db = app.firestore()
       getFirestore: (app) => app.firestore(),
+
+      // コレクション参照
       collection: (db, path) => db.collection(path),
+
+      // ドキュメント参照（doc(db, 'col', 'id') 形式）
       doc: (db, path, id) => db.collection(path).doc(id),
-      getDocs: (q) => q.get(),
-      getDoc: (ref) => ref.get(),
-      addDoc: (colRef, data) => colRef.add(data),
+      // 取得
+      getDocs: (q) => q.get().then(snap => ({
+        docs: snap.docs.map(d => ({ id: d.id, data: () => d.data() }))
+      })),
+      getDoc: (ref) => ref.get().then(d => ({
+        id: d.id,
+        exists: () => d.exists,
+        data: () => d.data(),
+      })),
+
+      // 書き込み
+      addDoc: (colRef, data) => colRef.add(data),  // compat版はDocumentReferenceを返す（ref.idで取得可）
       setDoc: (ref, data) => ref.set(data),
       updateDoc: (ref, data) => ref.update(data),
       deleteDoc: (ref) => ref.delete(),
+
+      // クエリ構築（compat はチェーン式）
+      // query(colRef, where(...), orderBy(...), limit(...)) の形を処理
       query: (colRef, ...constraints) => {
         let q = colRef;
-        constraints.forEach(c => { if (c) q = c(q); });
+        constraints.forEach(c => { if (typeof c === 'function') q = c(q); });
         return q;
       },
-      where: (field, op, val) => (q) => q.where(field, op, val),
-      orderBy: (field, dir) => (q) => q.orderBy(field, dir || 'asc'),
-      limit: (n) => (q) => q.limit(n),
-      onSnapshot: (q, cb) => q.onSnapshot(snapshot => {
-        const docChanges = snapshot.docChanges().map(c => ({
-          type: c.type, doc: { id: c.doc.id, data: () => c.doc.data() }
-        }));
-        cb({ docChanges: () => docChanges });
+      where:   (f, op, v) => (q) => q.where(f, op, v),
+      orderBy: (f, dir)   => (q) => q.orderBy(f, dir || 'asc'),
+      limit:   (n)        => (q) => q.limit(n),
+
+      // リアルタイム
+      onSnapshot: (q, cb) => q.onSnapshot(snap => {
+        cb({
+          docChanges: () => snap.docChanges().map(c => ({
+            type: c.type,
+            doc: { id: c.doc.id, data: () => c.doc.data() }
+          }))
+        });
       }),
     };
   </script>
