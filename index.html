@@ -102,8 +102,10 @@
       </button>
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260309-0194-firebase</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260715-firebase</span>
+        <span id="autoLogoutTimer" style="font-size:11px;color:#aaa;margin-right:4px"></span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
+        <button class="btn btn-outline btn-sm" onclick="confirmLogout()" title="ログアウト" style="color:#c0392b;border-color:#c0392b">🔒 ログアウト</button>
         <button class="btn btn-primary" id="newProjectBtn" onclick="openNewProject()">＋ 新規案件</button>
       </div>
     </div>
@@ -1282,5 +1284,65 @@
 <script src="js/invoice.js"></script>
 <script src="js/email.js"></script>
 <script src="js/app.js"></script>
+
+<script>
+/* ── 自動ログアウト（5分） ── */
+(function() {
+  const TIMEOUT_MS  = 5 * 60 * 1000; // 5分
+  const WARN_MS     = 60 * 1000;      // 残り1分で警告
+  let timer, warnTimer, remaining, countdownInterval;
+
+  function resetTimer() {
+    clearTimeout(timer);
+    clearTimeout(warnTimer);
+    clearInterval(countdownInterval);
+    remaining = TIMEOUT_MS;
+    updateTimerDisplay(false);
+
+    warnTimer = setTimeout(() => {
+      remaining = WARN_MS;
+      updateTimerDisplay(true);
+      countdownInterval = setInterval(() => {
+        remaining -= 1000;
+        updateTimerDisplay(true);
+        if (remaining <= 0) clearInterval(countdownInterval);
+      }, 1000);
+    }, TIMEOUT_MS - WARN_MS);
+
+    timer = setTimeout(() => {
+      window.location.href = '/logout.php';
+    }, TIMEOUT_MS);
+  }
+
+  function updateTimerDisplay(warn) {
+    const el = document.getElementById('autoLogoutTimer');
+    if (!el) return;
+    if (!warn) { el.textContent = ''; el.style.color = ''; return; }
+    const sec = Math.max(0, Math.ceil(remaining / 1000));
+    const min = Math.floor(sec / 60);
+    const s   = sec % 60;
+    el.textContent = `⏱ ${min}:${String(s).padStart(2,'0')} でログアウト`;
+    el.style.color = remaining <= 30000 ? '#c0392b' : '#e67e22';
+  }
+
+  // ユーザー操作でタイマーリセット
+  ['mousemove','mousedown','keydown','touchstart','scroll','click'].forEach(e => {
+    document.addEventListener(e, resetTimer, { passive: true });
+  });
+
+  // サーバー側のセッション延長（1分ごとにpingを送る）
+  setInterval(() => {
+    fetch('/api/ping.php', { method: 'GET' }).catch(() => {});
+  }, 60 * 1000);
+
+  resetTimer();
+})();
+
+function confirmLogout() {
+  if (confirm('ログアウトしますか？')) {
+    window.location.href = '/logout.php';
+  }
+}
+</script>
 </body>
 </html>

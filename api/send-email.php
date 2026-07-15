@@ -1,8 +1,11 @@
 <?php
 /**
  * send-email.php — Brevo (Sendinblue) SMTP API プロキシ
- * @version v20260309-0186-firebase | 2026-03-09 | webstudio-ledger
+ * @version v20260715 | webstudio-ledger
  */
+require_once dirname(__DIR__) . '/auth.php';
+checkIP();
+checkSession();
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
