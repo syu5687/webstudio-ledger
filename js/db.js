@@ -26,6 +26,50 @@ function initFirebase() {
     updateDbStatus(false, '未設定');
     return false;
   }
+
+  // window.firebaseApp/firebaseFirestoreが未定義の場合（Safari等）
+  // firebase グローバルから直接構築する
+  if (!window.firebaseApp || !window.firebaseFirestore) {
+    if (typeof firebase === 'undefined') {
+      console.error('Firebase SDKが読み込まれていません');
+      updateDbStatus(false, 'SDK未ロード');
+      return false;
+    }
+    console.warn('window.firebaseApp未定義 → firebase グローバルから再構築');
+    window.firebaseApp = {
+      initializeApp: (cfg) => firebase.initializeApp(cfg),
+      getApps: () => firebase.apps,
+    };
+    window.firebaseFirestore = {
+      getFirestore: (app) => app.firestore(),
+      collection: (db, path) => db.collection(path),
+      doc: (db, path, id) => db.collection(path).doc(id),
+      getDocs: (q) => q.get().then(snap => ({
+        docs: snap.docs.map(d => ({ id: d.id, data: () => d.data() }))
+      })),
+      getDoc: (ref) => ref.get().then(d => ({
+        id: d.id, exists: () => d.exists, data: () => d.data(),
+      })),
+      addDoc: (colRef, data) => colRef.add(data),
+      setDoc: (ref, data) => ref.set(data),
+      updateDoc: (ref, data) => ref.update(data),
+      deleteDoc: (ref) => ref.delete(),
+      query: (colRef, ...constraints) => {
+        let q = colRef;
+        constraints.forEach(c => { if (typeof c === 'function') q = c(q); });
+        return q;
+      },
+      where:   (f, op, v) => (q) => q.where(f, op, v),
+      orderBy: (f, dir)   => (q) => q.orderBy(f, dir || 'asc'),
+      limit:   (n)        => (q) => q.limit(n),
+      onSnapshot: (q, cb) => q.onSnapshot(snap => {
+        cb({ docChanges: () => snap.docChanges().map(c => ({
+          type: c.type, doc: { id: c.doc.id, data: () => c.doc.data() }
+        }))});
+      }),
+    };
+  }
+
   try {
     const { initializeApp, getApps } = window.firebaseApp;
     const fs = window.firebaseFirestore;

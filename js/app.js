@@ -871,7 +871,12 @@ function toast(msg, icon = '✓', type = '') {
 }
 
 /* ── START ── */
-init();
+// DOMContentLoaded後に確実に実行（Safari対応）
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 
 /* ============================================================
    DOMAIN MANAGEMENT

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>案件台帳 | Web制作管理システム</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=20260715-0197">
 </head>
 <body>
 
@@ -102,7 +102,7 @@
       </button>
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260715-0195-firebase</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260715-0197-firebase</span>
         <span id="autoLogoutTimer" style="font-size:11px;color:#aaa;margin-right:4px"></span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-outline btn-sm" onclick="confirmLogout()" title="ログアウト" style="color:#c0392b;border-color:#c0392b">🔒 ログアウト</button>
@@ -1222,68 +1222,61 @@
 
 <!-- Supabase CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="js/_env.js"></script>
+  <script src="js/_env.js?v=20260715-0197"></script>
   <!-- Firebase SDK (UMD版) -->
-  <script src="/js/lib/firebase-app-compat.js"></script>
-  <script src="/js/lib/firebase-firestore-compat.js"></script>
+  <script src="/js/lib/firebase-app-compat.js?v=20260715-0197"></script>
+  <script src="/js/lib/firebase-firestore-compat.js?v=20260715-0197"></script>
   <script>
     // Firebase compat SDK → db.js インターフェース変換
-    window.firebaseApp = {
-      initializeApp: (cfg) => firebase.initializeApp(cfg),
-      getApps: () => firebase.apps,
-    };
-    window.firebaseFirestore = {
-      // db = app.firestore()
-      getFirestore: (app) => app.firestore(),
-
-      // コレクション参照
-      collection: (db, path) => db.collection(path),
-
-      // ドキュメント参照（doc(db, 'col', 'id') 形式）
-      doc: (db, path, id) => db.collection(path).doc(id),
-      // 取得
-      getDocs: (q) => q.get().then(snap => ({
-        docs: snap.docs.map(d => ({ id: d.id, data: () => d.data() }))
-      })),
-      getDoc: (ref) => ref.get().then(d => ({
-        id: d.id,
-        exists: () => d.exists,
-        data: () => d.data(),
-      })),
-
-      // 書き込み
-      addDoc: (colRef, data) => colRef.add(data),  // compat版はDocumentReferenceを返す（ref.idで取得可）
-      setDoc: (ref, data) => ref.set(data),
-      updateDoc: (ref, data) => ref.update(data),
-      deleteDoc: (ref) => ref.delete(),
-
-      // クエリ構築（compat はチェーン式）
-      // query(colRef, where(...), orderBy(...), limit(...)) の形を処理
-      query: (colRef, ...constraints) => {
-        let q = colRef;
-        constraints.forEach(c => { if (typeof c === 'function') q = c(q); });
-        return q;
-      },
-      where:   (f, op, v) => (q) => q.where(f, op, v),
-      orderBy: (f, dir)   => (q) => q.orderBy(f, dir || 'asc'),
-      limit:   (n)        => (q) => q.limit(n),
-
-      // リアルタイム
-      onSnapshot: (q, cb) => q.onSnapshot(snap => {
-        cb({
-          docChanges: () => snap.docChanges().map(c => ({
-            type: c.type,
-            doc: { id: c.doc.id, data: () => c.doc.data() }
-          }))
-        });
-      }),
-    };
+    // window.onloadで確実にSDK読み込み後に実行（Safari対応）
+    function _setupFirebaseWrappers() {
+      if (typeof firebase === 'undefined') {
+        console.error('Firebase SDKが読み込まれていません');
+        return;
+      }
+      window.firebaseApp = {
+        initializeApp: (cfg) => firebase.initializeApp(cfg),
+        getApps: () => firebase.apps,
+      };
+      window.firebaseFirestore = {
+        getFirestore: (app) => app.firestore(),
+        collection: (db, path) => db.collection(path),
+        doc: (db, path, id) => db.collection(path).doc(id),
+        getDocs: (q) => q.get().then(snap => ({
+          docs: snap.docs.map(d => ({ id: d.id, data: () => d.data() }))
+        })),
+        getDoc: (ref) => ref.get().then(d => ({
+          id: d.id, exists: () => d.exists, data: () => d.data(),
+        })),
+        addDoc: (colRef, data) => colRef.add(data),
+        setDoc: (ref, data) => ref.set(data),
+        updateDoc: (ref, data) => ref.update(data),
+        deleteDoc: (ref) => ref.delete(),
+        query: (colRef, ...constraints) => {
+          let q = colRef;
+          constraints.forEach(c => { if (typeof c === 'function') q = c(q); });
+          return q;
+        },
+        where:   (f, op, v) => (q) => q.where(f, op, v),
+        orderBy: (f, dir)   => (q) => q.orderBy(f, dir || 'asc'),
+        limit:   (n)        => (q) => q.limit(n),
+        onSnapshot: (q, cb) => q.onSnapshot(snap => {
+          cb({ docChanges: () => snap.docChanges().map(c => ({
+            type: c.type, doc: { id: c.doc.id, data: () => c.doc.data() }
+          }))});
+        }),
+      };
+      console.log('✅ Firebase wrappers セットアップ完了');
+    }
+    // 即時実行 + DOMContentLoadedでも保険をかける
+    _setupFirebaseWrappers();
+    document.addEventListener('DOMContentLoaded', _setupFirebaseWrappers);
   </script>
-<script src="js/config.js"></script>
-<script src="js/db.js"></script>
-<script src="js/invoice.js"></script>
-<script src="js/email.js"></script>
-<script src="js/app.js"></script>
+<script src="js/config.js?v=20260715-0197"></script>
+<script src="js/db.js?v=20260715-0197"></script>
+<script src="js/invoice.js?v=20260715-0197"></script>
+<script src="js/email.js?v=20260715-0197"></script>
+<script src="js/app.js?v=20260715-0197"></script>
 
 <script>
 /* ── 自動ログアウト（5分） ── */
