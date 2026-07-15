@@ -11,7 +11,7 @@ session_start();
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
-    $validPassword = getenv('APP_PASSWORD') ?: 'linkup2024';
+    $validPassword = getenv('APP_PASSWORD') ?: 'password2024';
     if ($password === $validPassword) {
         $_SESSION['authenticated'] = true;
         $_SESSION['last_active']   = time();
@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="card">
   <div class="lock">🔒</div>
   <h1>案件台帳</h1>
-  <p class="sub">LINK-UP Management</p>
+  <p class="sub">Web制作管理システム</p>
   <form method="POST">
     <label>パスワード</label>
     <input type="password" name="password" autofocus placeholder="パスワードを入力">
