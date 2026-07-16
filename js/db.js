@@ -498,3 +498,48 @@ async function dbDeleteExpense(id) {
     return true;
   } catch (e) { console.error('経費削除エラー:', e); throw e; }
 }
+
+/* ── CONTACTS MASTER ── */
+
+async function dbFetchContactsMaster() {
+  if (!isDbReady()) return _cache.contactsMaster || [];
+  try {
+    const snap = await _getDocs(_query(_collection(_db,'contacts_master'), _orderBy('name')));
+    _cache.contactsMaster = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return _cache.contactsMaster;
+  } catch(e) { console.error('担当者取得エラー:', e); return _cache.contactsMaster || []; }
+}
+
+async function dbSaveContactMaster(data) {
+  if (!isDbReady()) {
+    if (!_cache.contactsMaster) _cache.contactsMaster = [];
+    if (data.id && !String(data.id).startsWith('local-')) {
+      const idx = _cache.contactsMaster.findIndex(c => c.id === data.id);
+      if (idx >= 0) _cache.contactsMaster[idx] = data;
+    } else { _cache.contactsMaster.push({ ...data, id: 'local-'+Date.now() }); }
+    toast('⚠️ オフラインモード', '⚠️'); return data;
+  }
+  try {
+    const now = new Date().toISOString();
+    if (data.id && !String(data.id).startsWith('local-')) {
+      const { id, ...upd } = data; upd.updatedAt = now;
+      await _updateDoc(_doc(_db,'contacts_master', data.id), upd);
+      const snap = await _getDoc(_doc(_db,'contacts_master', data.id));
+      return { id: snap.id, ...snap.data() };
+    } else {
+      const { id, ...ins } = data; ins.createdAt = now;
+      const ref = await _addDoc(_collection(_db,'contacts_master'), ins);
+      const snap = await _getDoc(_doc(_db,'contacts_master', ref.id));
+      return { id: snap.id, ...snap.data() };
+    }
+  } catch(e) { console.error('担当者保存エラー:', e); throw e; }
+}
+
+async function dbDeleteContactMaster(id) {
+  if (!isDbReady()) { _cache.contactsMaster = (_cache.contactsMaster||[]).filter(c => c.id !== id); return true; }
+  try {
+    await _deleteDoc(_doc(_db,'contacts_master', id));
+    _cache.contactsMaster = (_cache.contactsMaster||[]).filter(c => c.id !== id);
+    return true;
+  } catch(e) { console.error('担当者削除エラー:', e); throw e; }
+}

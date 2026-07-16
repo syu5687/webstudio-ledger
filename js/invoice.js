@@ -101,8 +101,9 @@ function renderInvoicePreview(p, type) {
 
         <!-- 左：宛先 -->
         <div style="padding-top:40px">
-          <div style="font-size:18px;font-weight:700;margin-bottom:6px">${client.name} 様</div>
-          ${client.contact ? `<div style="font-size:13px;color:#555;margin-bottom:20px">${client.contact} 様</div>` : '<div style="margin-bottom:20px"></div>'}
+          <div style="font-size:18px;font-weight:700;margin-bottom:4px">${client.name} 御中</div>
+          ${p.facilityName ? `<div style="font-size:14px;font-weight:600;color:#333;margin-bottom:6px">${p.facilityName}</div>` : ''}
+          ${p.recipientName ? `<div style="font-size:13px;color:#555;margin-bottom:20px">${p.recipientName} 様</div>` : '<div style="margin-bottom:20px"></div>'}
           <div style="margin-top:20px;font-size:13px;color:#333;font-weight:600">件名：${p.name}</div>
           <div style="margin-top:12px;font-size:13px">下記のとおりお見積申し上げます。</div>
           <div style="margin-top:16px">

@@ -54,7 +54,7 @@ async function init() {
       const connected = initFirebase();
       if (connected) {
         await Promise.race([
-          Promise.all([dbFetchProjects(), dbFetchClients(), dbFetchDomains()]),
+          Promise.all([dbFetchProjects(), dbFetchClients(), dbFetchDomains(), dbFetchContactsMaster()]),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
         ]);
         await loadCompanyFromDB();  // 自社情報をSupabaseから取得
@@ -88,7 +88,7 @@ function hideLoading() {
 }
 
 async function refreshData() {
-  await Promise.all([dbFetchProjects(), dbFetchClients(), dbFetchDomains(), dbFetchHostings(), dbLoadExpenses()]);
+  await Promise.all([dbFetchProjects(), dbFetchClients(), dbFetchDomains(), dbFetchHostings(), dbLoadExpenses(), dbFetchContactsMaster()]);
   renderTable();
   updateKPI();
   updateOrderBadge();
@@ -116,7 +116,7 @@ function closeSidebar() {
 
 function showView(view) {
   closeSidebar();
-  ['ledger','orders','delivered','invoices','billing','invoice','clients','domains','hostings','monthly','expenses','dashboard','board','own-servers','own-subscriptions','company','drive'].forEach(v => {
+  ['ledger','orders','delivered','invoices','billing','invoice','clients','contacts-master','domains','hostings','monthly','expenses','dashboard','board','own-servers','own-subscriptions','company','drive'].forEach(v => {
     const el = document.getElementById('view-'+v);
     if (!el) return;
     if (v !== view) { el.style.display = 'none'; return; }
@@ -135,9 +135,10 @@ function showView(view) {
   };
   document.getElementById('pageTitle').textContent = titles[view] || '';
   document.getElementById('newProjectBtn').style.display = view === 'ledger' ? '' : 'none';
-  if (view === 'orders')    renderOrdersTable();
-  if (view === 'delivered') renderDeliveredView();
-  if (view === 'invoices')  renderInvoicesView();
+  if (view === 'orders')          renderOrdersTable();
+  if (view === 'delivered')       renderDeliveredView();
+  if (view === 'invoices')        renderInvoicesView();
+  if (view === 'contacts-master') renderContactsMaster();
   if (view === 'company')   applyConfigToForm();
   if (view === 'domains')   renderDomains();
   if (view === 'hostings')  renderHostings();
@@ -653,22 +654,52 @@ function renderClients() {
   const search = (document.getElementById('clientSearch')?.value || '').toLowerCase();
   const tbody = document.getElementById('clientTableBody');
   if (!tbody) return;
-  const list = _cache.clients.filter(c => !search || c.name.toLowerCase().includes(search));
+  const list = _cache.clients.filter(c =>
+    !search ||
+    (c.name||'').toLowerCase().includes(search) ||
+    (c.facilities||[]).some(f => f.toLowerCase().includes(search))
+  );
   tbody.innerHTML = list.map(c => {
     const cnt = _cache.projects.filter(p => p.clientId === c.id).length;
-    // 担当者：contactsがあればバッジ表示、なければ旧フィールドfallback
-    let contacts = Array.isArray(c.contacts) ? c.contacts : [];
-    if (contacts.length === 0 && (c.contact || c.email)) contacts = [{ name: c.contact||'', email: c.email||'' }];
-    const contactHtml = contacts.length === 0 ? '—' :
-      contacts.map(ct => `<span style="display:inline-block;background:var(--surface2,#f0ede8);border-radius:4px;padding:1px 8px;font-size:11px;margin:1px">${ct.name||ct.email||''}</span>`).join('');
+    const facilities = (c.facilities||[]);
+    const facilityHtml = facilities.length === 0 ? '—' :
+      facilities.map(f => `<span style="display:inline-block;background:var(--surface2,#f0ede8);border-radius:4px;padding:1px 8px;font-size:11px;margin:1px">🏨 ${f}</span>`).join('');
     return `<tr onclick="openEditClient('${c.id}')">
-      <td style="font-weight:500">${c.name}</td>
-      <td>${contactHtml}</td>
+      <td style="font-weight:600">${c.name}</td>
+      <td>${facilityHtml}</td>
       <td>${c.tel||'—'}</td>
       <td class="font-mono">${cnt}</td>
       <td><div class="row-actions"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditClient('${c.id}')">編集</button></div></td>
     </tr>`;
   }).join('');
+}
+
+
+/* ── 取引先モーダル：施設名 ── */
+function renderFacilityRows(facilities) {
+  const wrap = document.getElementById('facilityRows');
+  if (!wrap) return;
+  if (!facilities || facilities.length === 0) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = facilities.map((f, i) => `
+    <div class="facility-row" style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+      <input class="form-control" placeholder="施設名" value="${f}" data-field="facility">
+      <button onclick="this.closest('.facility-row').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px 8px;flex-shrink:0">×</button>
+    </div>`).join('');
+}
+function addFacilityRow() {
+  const wrap = document.getElementById('facilityRows');
+  if (!wrap) return;
+  const row = document.createElement('div');
+  row.className = 'facility-row';
+  row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center';
+  row.innerHTML = `
+    <input class="form-control" placeholder="施設名" data-field="facility">
+    <button onclick="this.closest('.facility-row').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px 8px;flex-shrink:0">×</button>`;
+  wrap.appendChild(row);
+}
+function collectFacilities() {
+  return [...document.querySelectorAll('.facility-row [data-field="facility"]')]
+    .map(el => el.value.trim()).filter(Boolean);
 }
 
 /* ── 取引先モーダル：複数担当者 ── */
@@ -766,7 +797,7 @@ function openClientModal() {
   ['cl-name','cl-tel','cl-zip','cl-addr'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  renderContactRows([]);
+  renderFacilityRows([]);
   openModal('clientModal');
 }
 
@@ -780,29 +811,21 @@ function openEditClient(id) {
   document.getElementById('cl-tel').value = c.tel || '';
   document.getElementById('cl-zip').value = c.zip || '';
   document.getElementById('cl-addr').value = c.addr || '';
-  // 旧フォーマット（単一担当者）との互換
-  let contacts = Array.isArray(c.contacts) ? c.contacts : [];
-  if (contacts.length === 0 && (c.contact || c.email)) {
-    contacts = [{ name: c.contact || '', email: c.email || '', title: '' }];
-  }
-  renderContactRows(contacts);
+  renderFacilityRows(c.facilities || []);
   openModal('clientModal');
 }
 
 async function saveClient() {
   const name = document.getElementById('cl-name')?.value?.trim();
   if (!name) { toast('会社名を入力してください', '⚠️'); return; }
-  const contacts = collectContactRows();
+  const facilities = collectFacilities();
   const clientData = {
     id: window._editingClientId,
     name,
-    contacts,
-    // 後方互換（1件目を代表担当者として保持）
-    contact: contacts[0]?.name || null,
-    email:   contacts[0]?.email || null,
-    tel: document.getElementById('cl-tel')?.value || null,
-    zip: document.getElementById('cl-zip')?.value || null,
-    addr: document.getElementById('cl-addr')?.value || null,
+    facilities,
+    tel: document.getElementById('cl-tel')?.value?.trim() || null,
+    zip: document.getElementById('cl-zip')?.value?.trim() || null,
+    addr: document.getElementById('cl-addr')?.value?.trim() || null,
   };
   try {
     const saved = await dbSaveClient(clientData);
@@ -815,6 +838,8 @@ async function saveClient() {
     closeModal('clientModal');
     renderClients();
     populateClientSelect();
+    // 担当者マスターの施設フィルターも更新
+    populateContactMasterFilters();
     toast(window._editingClientId ? '取引先を更新しました' : '取引先を登録しました', '✅', 'success');
   } catch (e) {}
 }
@@ -2851,5 +2876,188 @@ async function markInvoicePaid(invNo) {
     updateKPI();
   } catch(e) {
     toast('更新エラー: ' + e.message, '❌', 'error');
+  }
+}
+
+/* ============================================================
+   担当者マスター
+   ============================================================ */
+
+function populateContactMasterFilters() {
+  const sel = document.getElementById('contactMasterClientFilter');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">全取引先</option>' +
+    (_cache.clients||[]).map(c => `<option value="${c.id}"${c.id===cur?' selected':''}>${c.name}</option>`).join('');
+}
+
+function renderContactsMaster() {
+  populateContactMasterFilters();
+  const search   = (document.getElementById('contactMasterSearch')?.value || '').toLowerCase();
+  const clientF  = document.getElementById('contactMasterClientFilter')?.value || '';
+  const tbody    = document.getElementById('contactMasterTableBody');
+  if (!tbody) return;
+
+  let list = (_cache.contactsMaster || []);
+  if (clientF) list = list.filter(c => c.clientId === clientF);
+  if (search)  list = list.filter(c =>
+    (c.name||'').toLowerCase().includes(search) ||
+    (c.facilityName||'').toLowerCase().includes(search) ||
+    (getClientById(c.clientId)?.name||'').toLowerCase().includes(search)
+  );
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">担当者が登録されていません</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(c => {
+    const client = getClientById(c.clientId);
+    return `<tr onclick="openEditContactMaster('${c.id}')">
+      <td style="font-weight:600">${c.name||'—'}</td>
+      <td style="font-size:12px;color:var(--muted)">${c.title||'—'}</td>
+      <td>${client?.name||'—'}</td>
+      <td>${c.facilityName||'—'}</td>
+      <td style="font-size:12px">${c.email||'—'}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditContactMaster('${c.id}')">編集</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateCmFacilities() {
+  const clientId = document.getElementById('cm-client')?.value;
+  const sel = document.getElementById('cm-facility');
+  if (!sel) return;
+  const client = _cache.clients.find(c => c.id === clientId);
+  const facilities = client?.facilities || [];
+  sel.innerHTML = '<option value="">-- 施設を選択（任意）--</option>' +
+    facilities.map(f => `<option value="${f}">${f}</option>`).join('');
+}
+
+function openContactMasterModal() {
+  window._editingContactMasterId = null;
+  document.getElementById('contactMasterModalTitle').textContent = '担当者登録';
+  document.getElementById('deleteContactMasterBtn').style.display = 'none';
+  ['cm-name','cm-email','cm-title','cm-memo'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  // 会社セレクト
+  const csel = document.getElementById('cm-client');
+  if (csel) {
+    csel.innerHTML = '<option value="">-- 会社を選択 --</option>' +
+      (_cache.clients||[]).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+  updateCmFacilities();
+  openModal('contactMasterModal');
+}
+
+function openEditContactMaster(id) {
+  const c = (_cache.contactsMaster||[]).find(x => x.id === id);
+  if (!c) return;
+  window._editingContactMasterId = id;
+  document.getElementById('contactMasterModalTitle').textContent = '担当者編集';
+  document.getElementById('deleteContactMasterBtn').style.display = 'inline-flex';
+  document.getElementById('cm-name').value  = c.name  || '';
+  document.getElementById('cm-email').value = c.email || '';
+  document.getElementById('cm-title').value = c.title || '';
+  document.getElementById('cm-memo').value  = c.memo  || '';
+  // 会社セレクト
+  const csel = document.getElementById('cm-client');
+  if (csel) {
+    csel.innerHTML = '<option value="">-- 会社を選択 --</option>' +
+      (_cache.clients||[]).map(cl => `<option value="${cl.id}"${cl.id===c.clientId?' selected':''}>${cl.name}</option>`).join('');
+  }
+  updateCmFacilities();
+  const fsel = document.getElementById('cm-facility');
+  if (fsel && c.facilityName) fsel.value = c.facilityName;
+  openModal('contactMasterModal');
+}
+
+async function saveContactMaster() {
+  const name = document.getElementById('cm-name')?.value?.trim();
+  if (!name) { toast('氏名を入力してください', '⚠️'); return; }
+  const clientId = document.getElementById('cm-client')?.value;
+  if (!clientId) { toast('所属会社を選択してください', '⚠️'); return; }
+
+  const data = {
+    id:           window._editingContactMasterId,
+    name,
+    email:        document.getElementById('cm-email')?.value?.trim() || '',
+    title:        document.getElementById('cm-title')?.value?.trim() || '',
+    memo:         document.getElementById('cm-memo')?.value?.trim()  || '',
+    clientId,
+    facilityName: document.getElementById('cm-facility')?.value || '',
+  };
+
+  try {
+    const saved = await dbSaveContactMaster(data);
+    if (!_cache.contactsMaster) _cache.contactsMaster = [];
+    if (window._editingContactMasterId) {
+      const idx = _cache.contactsMaster.findIndex(c => c.id === window._editingContactMasterId);
+      if (idx >= 0) _cache.contactsMaster[idx] = { ..._cache.contactsMaster[idx], ...data };
+    } else {
+      _cache.contactsMaster.push({ ...data, id: saved.id });
+    }
+    closeModal('contactMasterModal');
+    renderContactsMaster();
+    toast(window._editingContactMasterId ? '担当者を更新しました' : '担当者を登録しました', '✅', 'success');
+  } catch(e) { toast('保存エラー: ' + e.message, '❌', 'error'); }
+}
+
+async function deleteContactMaster() {
+  const id = window._editingContactMasterId;
+  if (!id) return;
+  const c = (_cache.contactsMaster||[]).find(x => x.id === id);
+  if (!confirm(`「${c?.name}」を削除しますか？`)) return;
+  try {
+    await dbDeleteContactMaster(id);
+    _cache.contactsMaster = (_cache.contactsMaster||[]).filter(x => x.id !== id);
+    closeModal('contactMasterModal');
+    renderContactsMaster();
+    toast('担当者を削除しました', '🗑');
+  } catch(e) {}
+}
+
+/* ============================================================
+   案件モーダル：取引先選択時に施設・担当者を連動
+   ============================================================ */
+
+function onProjectClientChange(clientId) {
+  // 施設リスト更新
+  const fsel = document.getElementById('p-facility');
+  if (fsel) {
+    const client = _cache.clients.find(c => c.id === clientId);
+    const facilities = client?.facilities || [];
+    fsel.innerHTML = '<option value="">-- 施設を選択 --</option>' +
+      facilities.map(f => `<option value="${f}">${f}</option>`).join('');
+  }
+  // 担当者リスト更新（この会社の担当者のみ）
+  const csel = document.getElementById('p-contact-master');
+  if (csel) {
+    const contacts = (_cache.contactsMaster||[]).filter(c => c.clientId === clientId);
+    csel.innerHTML = '<option value="">-- 担当者を選択 --</option>' +
+      contacts.map(c => {
+        const label = [c.name, c.title, c.facilityName].filter(Boolean).join(' / ');
+        return `<option value="${c.id}">${label}</option>`;
+      }).join('');
+  }
+  // メール送付先も更新
+  populateRecipientSelect(clientId, '', '');
+}
+
+function onProjectContactChange(contactId) {
+  const c = (_cache.contactsMaster||[]).find(x => x.id === contactId);
+  if (!c) return;
+  // 施設を自動セット
+  if (c.facilityName) {
+    const fsel = document.getElementById('p-facility');
+    if (fsel) fsel.value = c.facilityName;
+  }
+  // メール送付先も自動セット
+  if (c.email) {
+    const nameEl = document.getElementById('p-recipient-name');
+    const emailEl = document.getElementById('p-recipient-email');
+    if (nameEl) nameEl.value = c.name || '';
+    if (emailEl) emailEl.value = c.email || '';
   }
 }
