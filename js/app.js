@@ -428,7 +428,7 @@ async function openNewProject() {
   document.getElementById('p-code').value = code;
   document.getElementById('p-status').value = 'estimate_request';
   document.getElementById('p-name').value = '';
-  document.getElementById('p-manager').value = '';
+  // p-manager removed
   document.getElementById('p-order-date').value = '';
   document.getElementById('p-due-date').value = '';
   document.getElementById('p-desc').value = '';
@@ -459,7 +459,7 @@ function openEditProject(id) {
   document.getElementById('p-code').value = p.code || '';
   document.getElementById('p-status').value = p.status;
   document.getElementById('p-name').value = p.name;
-  document.getElementById('p-manager').value = p.manager || '';
+  // p-manager removed
   document.getElementById('p-order-date').value = p.orderDate || '';
   document.getElementById('p-due-date').value = p.dueDate || '';
   document.getElementById('p-desc').value = p.desc || '';
@@ -513,7 +513,7 @@ async function saveProject() {
       name,
       status: document.getElementById('p-status')?.value,
       clientId: document.getElementById('p-client')?.value,
-      manager: document.getElementById('p-manager')?.value,
+      manager: '',
       orderDate: document.getElementById('p-order-date')?.value || null,
       dueDate: document.getElementById('p-due-date')?.value || null,
       desc: document.getElementById('p-desc')?.value,
@@ -1574,7 +1574,7 @@ function openEditProjectPreview(proj) {
   document.getElementById('p-code').value    = proj.code || '';
   document.getElementById('p-status').value  = proj.status || 'invoiced';
   document.getElementById('p-name').value    = proj.name || '';
-  document.getElementById('p-manager').value = proj.manager || '';
+  // p-manager removed
   document.getElementById('p-order-date').value = proj.orderDate || '';
   document.getElementById('p-due-date').value   = proj.dueDate || '';
   document.getElementById('p-desc').value    = proj.desc || '';

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>案件台帳 | Web制作管理システム</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260715-0200">
+<link rel="stylesheet" href="css/style.css?v=20260715-0201">
 </head>
 <body>
 
@@ -105,7 +105,7 @@
       </button>
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260715-0200-firebase</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260715-0201-firebase</span>
         <span id="autoLogoutTimer" style="font-size:11px;color:#aaa;margin-right:4px"></span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-outline btn-sm" onclick="confirmLogout()" title="ログアウト" style="color:#c0392b;border-color:#c0392b">🔒 ログアウト</button>
@@ -1287,10 +1287,10 @@
 
 <!-- Supabase CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="js/_env.js?v=20260715-0200"></script>
+  <script src="js/_env.js?v=20260715-0201"></script>
   <!-- Firebase SDK (UMD版) -->
-  <script src="/js/lib/firebase-app-compat.js?v=20260715-0200"></script>
-  <script src="/js/lib/firebase-firestore-compat.js?v=20260715-0200"></script>
+  <script src="/js/lib/firebase-app-compat.js?v=20260715-0201"></script>
+  <script src="/js/lib/firebase-firestore-compat.js?v=20260715-0201"></script>
   <script>
     // Firebase compat SDK → db.js インターフェース変換
     // window.onloadで確実にSDK読み込み後に実行（Safari対応）
@@ -1337,11 +1337,11 @@
     _setupFirebaseWrappers();
     document.addEventListener('DOMContentLoaded', _setupFirebaseWrappers);
   </script>
-<script src="js/config.js?v=20260715-0200"></script>
-<script src="js/db.js?v=20260715-0200"></script>
-<script src="js/invoice.js?v=20260715-0200"></script>
-<script src="js/email.js?v=20260715-0200"></script>
-<script src="js/app.js?v=20260715-0200"></script>
+<script src="js/config.js?v=20260715-0201"></script>
+<script src="js/db.js?v=20260715-0201"></script>
+<script src="js/invoice.js?v=20260715-0201"></script>
+<script src="js/email.js?v=20260715-0201"></script>
+<script src="js/app.js?v=20260715-0201"></script>
 
 <script>
 /* ── 自動ログアウト（5分） ── */
