@@ -240,11 +240,45 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 /* ── PRINT ── */
 @media print {
-  .sidebar, .topbar, .toolbar, .kpi-row, .modal-footer, .order-cta { display: none !important; }
-  .main { margin-left: 0; }
-  .invoice-preview { border: none; }
-  .overlay { position: static; background: none; padding: 0; }
-  .modal { box-shadow: none; }
+  /* 不要要素を非表示 */
+  .sidebar, .topbar, .toolbar, .kpi-row, .modal-footer,
+  .order-cta, .nav, .btn, button, .modal-close,
+  #autoLogoutTimer { display: none !important; }
+
+  /* レイアウトリセット */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; padding: 0; background: #fff; }
+  .main { margin-left: 0 !important; padding: 0 !important; }
+  .content { padding: 0 !important; }
+
+  /* モーダルをA4印刷用にフル表示 */
+  .overlay {
+    position: static !important;
+    background: none !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+  .overlay:not(#invoicePreviewModal) { display: none !important; }
+  #invoicePreviewModal { display: block !important; }
+  .modal {
+    box-shadow: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .modal-header { display: none !important; }
+  .modal-body { padding: 0 !important; }
+
+  /* 請求書プレビューエリア */
+  .invoice-preview {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  #printArea { page-break-inside: avoid; }
 }
 
 /* ── SCROLLBAR ── */

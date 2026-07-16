@@ -170,8 +170,10 @@ function renderInvoicePreview(p, type) {
 }
 
 function downloadPDF() {
-  toast('印刷ダイアログでPDF保存をお選びください', '📄');
-  setTimeout(() => window.print(), 300);
+  toast('ブラウザの印刷ダイアログが開きます。送信先で「PDFに保存」を選択してください。', '📄');
+  setTimeout(() => {
+    window.print();
+  }, 500);
 }
 
 /* クライアント側の受注ボタン処理 */

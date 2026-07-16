@@ -116,7 +116,7 @@ function closeSidebar() {
 
 function showView(view) {
   closeSidebar();
-  ['ledger','orders','delivered','invoices','billing','invoice','clients','contacts-master','domains','hostings','monthly','expenses','dashboard','board','own-servers','own-subscriptions','company','drive'].forEach(v => {
+  ['ledger','orders','estimates','delivered','invoices','billing','invoice','clients','contacts-master','domains','hostings','monthly','expenses','dashboard','board','own-servers','own-subscriptions','company','drive'].forEach(v => {
     const el = document.getElementById('view-'+v);
     if (!el) return;
     if (v !== view) { el.style.display = 'none'; return; }
@@ -126,7 +126,7 @@ function showView(view) {
     el.classList.toggle('active', el.dataset.view === view);
   });
   const titles = {
-    ledger:'案件台帳', orders:'受注一覧', delivered:'納品済一覧', invoices:'請求書一覧',
+    ledger:'案件台帳', orders:'受注一覧', estimates:'見積一覧', delivered:'納品済一覧', invoices:'請求書一覧',
     billing:'請求書作成（旧）', invoice:'見積・請求書', clients:'取引先',
     domains:'ドメイン管理', hostings:'ホスティング管理', monthly:'月次請求リスト',
     expenses:'経費管理', dashboard:'売上ダッシュボード', board:'カンバンボード',
@@ -136,6 +136,7 @@ function showView(view) {
   document.getElementById('pageTitle').textContent = titles[view] || '';
   document.getElementById('newProjectBtn').style.display = view === 'ledger' ? '' : 'none';
   if (view === 'orders')          renderOrdersTable();
+  if (view === 'estimates')       renderEstimatesView();
   if (view === 'delivered')       renderDeliveredView();
   if (view === 'invoices')        renderInvoicesView();
   if (view === 'contacts-master') renderContactsMaster();
@@ -3060,4 +3061,79 @@ function onProjectContactChange(contactId) {
     if (nameEl) nameEl.value = c.name || '';
     if (emailEl) emailEl.value = c.email || '';
   }
+}
+
+/* ============================================================
+   見積一覧ビュー
+   ============================================================ */
+function renderEstimatesView() {
+  const tbody   = document.getElementById('estimatesTableBody');
+  if (!tbody) return;
+  const keyword = (document.getElementById('estimatesSearch')?.value || '').toLowerCase();
+  const statusF = document.getElementById('estimatesStatusFilter')?.value || '';
+
+  // 見積Noがある案件を対象
+  let list = (_cache.projects||[]).filter(p => p.estNo);
+  if (statusF) list = list.filter(p => p.status === statusF);
+  if (keyword) list = list.filter(p => {
+    const c = getClientById(p.clientId);
+    return (p.estNo||'').toLowerCase().includes(keyword) ||
+           (p.name||'').toLowerCase().includes(keyword) ||
+           (c?.name||'').toLowerCase().includes(keyword);
+  });
+
+  // 見積日の新しい順
+  list = list.sort((a,b) => (b.estDate||'').localeCompare(a.estDate||''));
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">見積書がありません</td></tr>`;
+    return;
+  }
+
+  const fmt = n => '¥' + Number(n||0).toLocaleString();
+  const calcTotal = lines => (lines||[]).reduce((s,l) => s+(l.qty||1)*(l.price||0), 0);
+  const statusLabel = {
+    estimate_request: { label:'見積依頼', color:'#1565c0' },
+    estimating:       { label:'見積中',   color:'#e65100' },
+    ordered:          { label:'受注',     color:'#2e7d32' },
+    wip:              { label:'作業中',   color:'#6a1b9a' },
+    delivered:        { label:'納品済',   color:'#4527a0' },
+    invoiced:         { label:'請求済',   color:'#c62828' },
+    paid:             { label:'入金済',   color:'#2e7d32' },
+  };
+
+  tbody.innerHTML = list.map(p => {
+    const client = getClientById(p.clientId);
+    const subtotal = calcTotal(p.lines);
+    const total    = subtotal + Math.floor(subtotal * 0.1);
+    const sl       = statusLabel[p.status] || { label: p.status, color:'#888' };
+    return `<tr onclick="openEditProject('${p.id}')" style="cursor:pointer">
+      <td style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700">${p.estNo||'—'}</td>
+      <td>
+        <div style="font-weight:600;font-size:13px">${p.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${client?.name||'—'}</div>
+      </td>
+      <td style="font-size:12px;color:var(--muted)">${p.facilityName||'—'}</td>
+      <td style="font-size:12px">${p.estDate||'—'}</td>
+      <td style="text-align:right;font-family:'Space Mono',monospace;font-weight:700">${fmt(total)}</td>
+      <td style="text-align:center">
+        <span style="background:${sl.color}22;color:${sl.color};font-size:11px;padding:2px 10px;border-radius:10px;font-weight:600">${sl.label}</span>
+      </td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEstimatePreview('${p.id}')">📄 見積書</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openEstimatePreview(projId) {
+  const p = (_cache.projects||[]).find(x => x.id === projId);
+  if (!p) return;
+  openEditProject(projId);
+  // モーダルが開いた後に見積書タブへ
+  setTimeout(() => {
+    const estBtn = document.querySelector('[onclick*="showEstimate"]') ||
+                   document.querySelector('[onclick*="estimate"]');
+    if (typeof showInvoicePreview === 'function') showInvoicePreview(projId, 'estimate');
+  }, 300);
 }

@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php if (isset($_GET['timeout'])): ?><p class="err">⏱ 操作がなかったため自動ログアウトしました</p><?php endif; ?>
     <button type="submit">ログイン</button>
   </form>
-  <p style="text-align:center;font-size:10px;color:#ccc;margin-top:24px">v20260715-0201-firebase</p>
+  <p style="text-align:center;font-size:10px;color:#ccc;margin-top:24px">v20260716-0203-firebase</p>
 </div>
 </body>
 </html>

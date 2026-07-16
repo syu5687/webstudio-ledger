@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>案件台帳 | Web制作管理システム</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260715-0201">
+<link rel="stylesheet" href="css/style.css?v=20260716-0203">
 </head>
 <body>
 
@@ -42,6 +42,9 @@
         <span class="nav-icon">✅</span> 受注一覧
         <span class="nav-badge" id="orderBadge" style="display:none"></span>
       </div>
+      <div class="nav-item" data-view="estimates" onclick="showView('estimates')">
+        <span class="nav-icon">📝</span> 見積一覧
+      </div>
       <div class="nav-item" data-view="delivered" onclick="showView('delivered')">
         <span class="nav-icon">📦</span> 納品済一覧
         <span class="nav-badge" id="deliveredBadge" style="display:none;background:#4527a0"></span>
@@ -52,9 +55,7 @@
       <div class="nav-item" data-view="board" onclick="showView('board')">
         <span class="nav-icon">🗂️</span> カンバンボード
       </div>
-      <div class="nav-item" data-view="invoice" onclick="showView('invoice')">
-        <span class="nav-icon">📄</span> 見積・請求書
-      </div>
+
       <div class="nav-section">マスター</div>
       <div class="nav-item" data-view="clients" onclick="showView('clients')">
         <span class="nav-icon">🏢</span> 取引先
@@ -105,7 +106,7 @@
       </button>
       <div class="page-title" id="pageTitle">案件台帳</div>
       <div class="topbar-right">
-        <span style="font-size:10px;color:#888;opacity:0.6">v20260715-0201-firebase</span>
+        <span style="font-size:10px;color:#888;opacity:0.6">v20260716-0203-firebase</span>
         <span id="autoLogoutTimer" style="font-size:11px;color:#aaa;margin-right:4px"></span>
         <button class="btn btn-outline btn-sm" onclick="refreshData()" title="データ再読み込み">🔄</button>
         <button class="btn btn-outline btn-sm" onclick="confirmLogout()" title="ログアウト" style="color:#c0392b;border-color:#c0392b">🔒 ログアウト</button>
@@ -224,6 +225,38 @@
               </tr>
             </thead>
             <tbody id="ordersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ESTIMATES VIEW（見積一覧） -->
+      <div id="view-estimates" style="display:none">
+        <div class="toolbar" style="margin-bottom:16px">
+          <div class="search-box">
+            <span>🔍</span>
+            <input type="text" id="estimatesSearch" placeholder="見積No・案件名・取引先で検索..." oninput="renderEstimatesView()">
+          </div>
+          <select class="filter-select" id="estimatesStatusFilter" onchange="renderEstimatesView()">
+            <option value="">全ステータス</option>
+            <option value="estimating">見積中</option>
+            <option value="estimate_request">見積依頼</option>
+            <option value="ordered">受注</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>見積書No</th>
+                <th>案件名 / 取引先</th>
+                <th>施設名</th>
+                <th>見積日</th>
+                <th style="text-align:right">金額（税込）</th>
+                <th>ステータス</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="estimatesTableBody"></tbody>
           </table>
         </div>
       </div>
@@ -993,17 +1026,17 @@
       </div>
 
       <div id="emailConfigWarning" style="display:none;background:#fff8e1;border:1px solid #f0c040;border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:13px">
-        ⚠️ Resend APIキーが未設定です。<span style="color:var(--accent2);cursor:pointer;text-decoration:underline" onclick="closeModal('emailModal');showView('company')">自社情報設定</span>から設定してください。
+        ⚠️ Brevo APIキーが未設定です。Cloud Runの環境変数 BREVO_API_KEY を設定してください。
       </div>
 
       <!-- 編集タブ -->
-      <div id="emailPane-edit">
+      <div id="emailTabEdit">
         <div class="form-grid">
           <div class="form-group form-full"><label class="form-label">宛先 *</label><input class="form-control" id="mail-to" type="email" placeholder="client@example.com"></div>
           <div class="form-group form-full"><label class="form-label">CC</label><input class="form-control" id="mail-cc" placeholder=""></div>
           <div class="form-group form-full"><label class="form-label">件名</label><input class="form-control" id="mail-subject"></div>
           <div class="form-group form-full"><label class="form-label">本文（テキスト版・編集可）</label>
-            <textarea class="form-control" id="mail-body" style="min-height:200px;line-height:1.9"></textarea>
+            <textarea class="form-control" id="mail-body-html" style="min-height:200px;line-height:1.9"></textarea>
           </div>
           <div class="form-group form-full">
             <label class="form-label">閲覧URL</label>
@@ -1020,12 +1053,12 @@
       </div>
 
       <!-- プレビュータブ -->
-      <div id="emailPane-preview" style="display:none">
+      <div id="emailTabPreview" style="display:none">
         <div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding:8px 12px;background:var(--surface);border-radius:4px">
           ℹ️ 実際にクライアントへ送信されるHTMLメールのプレビューです。閲覧URLのリンクから見積書・請求書の詳細を確認できます。
         </div>
         <div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;max-height:480px;overflow-y:auto">
-          <iframe id="emailHtmlPreview" style="width:100%;min-height:460px;border:none;display:block" srcdoc=""></iframe>
+          <iframe id="emailPreviewFrame" style="width:100%;min-height:460px;border:none;display:block" srcdoc=""></iframe>
         </div>
       </div>
     </div>
@@ -1287,10 +1320,10 @@
 
 <!-- Supabase CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="js/_env.js?v=20260715-0201"></script>
+  <script src="js/_env.js?v=20260716-0203"></script>
   <!-- Firebase SDK (UMD版) -->
-  <script src="/js/lib/firebase-app-compat.js?v=20260715-0201"></script>
-  <script src="/js/lib/firebase-firestore-compat.js?v=20260715-0201"></script>
+  <script src="/js/lib/firebase-app-compat.js?v=20260716-0203"></script>
+  <script src="/js/lib/firebase-firestore-compat.js?v=20260716-0203"></script>
   <script>
     // Firebase compat SDK → db.js インターフェース変換
     // window.onloadで確実にSDK読み込み後に実行（Safari対応）
@@ -1337,11 +1370,11 @@
     _setupFirebaseWrappers();
     document.addEventListener('DOMContentLoaded', _setupFirebaseWrappers);
   </script>
-<script src="js/config.js?v=20260715-0201"></script>
-<script src="js/db.js?v=20260715-0201"></script>
-<script src="js/invoice.js?v=20260715-0201"></script>
-<script src="js/email.js?v=20260715-0201"></script>
-<script src="js/app.js?v=20260715-0201"></script>
+<script src="js/config.js?v=20260716-0203"></script>
+<script src="js/db.js?v=20260716-0203"></script>
+<script src="js/invoice.js?v=20260716-0203"></script>
+<script src="js/email.js?v=20260716-0203"></script>
+<script src="js/app.js?v=20260716-0203"></script>
 
 <script>
 /* ── 自動ログアウト（5分） ── */
